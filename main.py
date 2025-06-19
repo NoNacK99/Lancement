@@ -4,6 +4,7 @@
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 import psycopg
@@ -113,10 +114,15 @@ async def root():
     return {
         "message": "🚀 API Plans d'Affaires - Version 1.0",
         "status": "✅ Opérationnelle",
+        "pages": {
+            "student": "/student",
+            "professor": "/professor"
+        },
         "endpoints": {
             "login": "/auth/login",
             "submissions": "/submissions",
-            "dashboard": "/professor/dashboard"
+            "dashboard": "/professor/dashboard",
+            "professors": "/professors"
         }
     }
 
@@ -124,6 +130,23 @@ async def root():
 async def health_check():
     """Check de santé de l'API"""
     return {"status": "healthy", "timestamp": datetime.utcnow()}
+
+# 🌐 Routes pour servir les pages HTML
+@app.get("/student")
+async def student_page():
+    """Page de soumission pour les étudiants"""
+    if os.path.exists("student.html"):
+        return FileResponse("student.html")
+    else:
+        raise HTTPException(status_code=404, detail="Page étudiant non trouvée")
+
+@app.get("/professor") 
+async def professor_page():
+    """Page dashboard pour les professeurs"""
+    if os.path.exists("professor.html"):
+        return FileResponse("professor.html")
+    else:
+        raise HTTPException(status_code=404, detail="Page professeur non trouvée")
 
 # 🔐 Authentification
 @app.post("/auth/login")
