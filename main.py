@@ -6,7 +6,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
-import asyncpg
+import psycopg
+from psycopg import AsyncConnection
 import os
 import hashlib
 import jwt
@@ -78,7 +79,7 @@ class AnalysisResponse(BaseModel):
 
 # 🔌 Connexion base de données
 async def get_db_connection():
-    conn = await asyncpg.connect(DATABASE_URL)
+    conn = await AsyncConnection.connect(DATABASE_URL)
     try:
         yield conn
     finally:
@@ -133,30 +134,40 @@ async def login_professor(professor_data: ProfessorLogin):
         query = """
         SELECT id, email, password_hash, name, course 
         FROM professors 
-        WHERE email = $1
+        WHERE email = %s
         """
-        professor = await conn.fetchrow(query, professor_data.email)
+        cursor = await conn.execute(query, (professor_data.email,))
+        professor = await cursor.fetchone()
         
         if not professor:
             raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
         
+        # Convertir en dict pour faciliter l'accès
+        professor_dict = {
+            'id': professor[0],
+            'email': professor[1], 
+            'password_hash': professor[2],
+            'name': professor[3],
+            'course': professor[4]
+        }
+        
         # Vérifier le mot de passe (simplifié pour démo)
         # En prod: utiliser bcrypt ou argon2
         password_hash = hash_password(professor_data.password)
-        if professor['password_hash'] != password_hash:
+        if professor_dict['password_hash'] != password_hash:
             raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
         
         # Créer token JWT
-        access_token = create_access_token(data={"sub": str(professor['id'])})
+        access_token = create_access_token(data={"sub": str(professor_dict['id'])})
         
         return {
             "access_token": access_token,
             "token_type": "bearer",
             "professor": {
-                "id": str(professor['id']),
-                "email": professor['email'],
-                "name": professor['name'],
-                "course": professor['course']
+                "id": str(professor_dict['id']),
+                "email": professor_dict['email'],
+                "name": professor_dict['name'],
+                "course": professor_dict['course']
             }
         }
 
@@ -195,21 +206,27 @@ async def create_submission(
     async with get_db_connection().__anext__() as conn:
         query = """
         INSERT INTO submissions (student_name, student_email, professor_id, project_title, file_url, file_name, file_size)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES (%s, %s, %s, %s, %s, %s, %s)
         RETURNING id, student_name, student_email, project_title, status, submission_date, file_name
         """
-        submission = await conn.fetchrow(
+        cursor = await conn.execute(
             query, 
-            student_name, 
-            student_email, 
-            professor_id, 
-            project_title, 
-            file_path, 
-            file.filename, 
-            len(content)
+            (student_name, student_email, professor_id, project_title, file_path, file.filename, len(content))
         )
+        submission = await cursor.fetchone()
         
-        return SubmissionResponse(**dict(submission))
+        # Convertir en dict
+        submission_dict = {
+            'id': str(submission[0]),
+            'student_name': submission[1],
+            'student_email': submission[2],
+            'project_title': submission[3],
+            'status': submission[4],
+            'submission_date': submission[5],
+            'file_name': submission[6]
+        }
+        
+        return SubmissionResponse(**submission_dict)
 
 @app.get("/professor/dashboard")
 async def get_professor_dashboard(professor_id: str = Depends(get_current_professor)):
@@ -228,15 +245,31 @@ async def get_professor_dashboard(professor_id: str = Depends(get_current_profes
             a.processing_time_seconds
         FROM submissions s
         LEFT JOIN analyses a ON s.id = a.submission_id
-        WHERE s.professor_id = $1
+        WHERE s.professor_id = %s
         ORDER BY s.submission_date DESC
         """
-        submissions = await conn.fetch(query, professor_id)
+        cursor = await conn.execute(query, (professor_id,))
+        submissions = await cursor.fetchall()
+        
+        # Convertir en liste de dicts
+        submissions_list = []
+        for s in submissions:
+            submissions_list.append({
+                'id': str(s[0]),
+                'student_name': s[1],
+                'student_email': s[2], 
+                'project_title': s[3],
+                'status': s[4],
+                'submission_date': s[5],
+                'file_name': s[6],
+                'analysis_completed_at': s[7],
+                'processing_time_seconds': s[8]
+            })
         
         # Stats
-        total = len(submissions)
-        completed = len([s for s in submissions if s['analysis_completed_at']])
-        processing = len([s for s in submissions if s['status'] == 'processing'])
+        total = len(submissions_list)
+        completed = len([s for s in submissions_list if s['analysis_completed_at']])
+        processing = len([s for s in submissions_list if s['status'] == 'processing'])
         
         return {
             "stats": {
@@ -245,7 +278,7 @@ async def get_professor_dashboard(professor_id: str = Depends(get_current_profes
                 "processing": processing,
                 "pending": total - completed - processing
             },
-            "submissions": [dict(s) for s in submissions]
+            "submissions": submissions_list
         }
 
 @app.get("/submissions/{submission_id}/analysis")
@@ -255,9 +288,10 @@ async def get_analysis(submission_id: str, professor_id: str = Depends(get_curre
         # Vérifier que la soumission appartient au professeur
         query_check = """
         SELECT id FROM submissions 
-        WHERE id = $1 AND professor_id = $2
+        WHERE id = %s AND professor_id = %s
         """
-        submission = await conn.fetchrow(query_check, submission_id, professor_id)
+        cursor_check = await conn.execute(query_check, (submission_id, professor_id))
+        submission = await cursor_check.fetchone()
         if not submission:
             raise HTTPException(status_code=404, detail="Soumission non trouvée")
         
@@ -265,13 +299,23 @@ async def get_analysis(submission_id: str, professor_id: str = Depends(get_curre
         query_analysis = """
         SELECT id, submission_id, report_content, generated_at, processing_time_seconds
         FROM analyses 
-        WHERE submission_id = $1
+        WHERE submission_id = %s
         """
-        analysis = await conn.fetchrow(query_analysis, submission_id)
+        cursor_analysis = await conn.execute(query_analysis, (submission_id,))
+        analysis = await cursor_analysis.fetchone()
         if not analysis:
             raise HTTPException(status_code=404, detail="Analyse non trouvée")
         
-        return AnalysisResponse(**dict(analysis))
+        # Convertir en dict
+        analysis_dict = {
+            'id': str(analysis[0]),
+            'submission_id': str(analysis[1]),
+            'report_content': analysis[2],
+            'generated_at': analysis[3],
+            'processing_time_seconds': analysis[4]
+        }
+        
+        return AnalysisResponse(**analysis_dict)
 
 # 🤖 Simulation analyse IA (pour test)
 @app.post("/submissions/{submission_id}/analyze")
@@ -280,8 +324,8 @@ async def trigger_analysis(submission_id: str):
     async with get_db_connection().__anext__() as conn:
         # Mettre à jour le statut
         await conn.execute(
-            "UPDATE submissions SET status = 'processing' WHERE id = $1",
-            submission_id
+            "UPDATE submissions SET status = 'processing' WHERE id = %s",
+            (submission_id,)
         )
         
         # Simuler une analyse (en prod: vraie IA)
@@ -314,15 +358,15 @@ async def trigger_analysis(submission_id: str):
         await conn.execute(
             """
             INSERT INTO analyses (submission_id, report_content, processing_time_seconds, ai_model_used)
-            VALUES ($1, $2, $3, $4)
+            VALUES (%s, %s, %s, %s)
             """,
-            submission_id, fake_report, 420, "simulation"
+            (submission_id, fake_report, 420, "simulation")
         )
         
         # Mettre à jour le statut
         await conn.execute(
-            "UPDATE submissions SET status = 'completed' WHERE id = $1",
-            submission_id
+            "UPDATE submissions SET status = 'completed' WHERE id = %s",
+            (submission_id,)
         )
         
         return {"message": "Analyse terminée", "submission_id": submission_id}
@@ -333,8 +377,18 @@ async def get_professors():
     """Liste des professeurs pour le dropdown frontend"""
     async with get_db_connection().__anext__() as conn:
         query = "SELECT id, name, course FROM professors ORDER BY name"
-        professors = await conn.fetch(query)
-        return [dict(p) for p in professors]
+        cursor = await conn.execute(query)
+        professors = await cursor.fetchall()
+        
+        professors_list = []
+        for p in professors:
+            professors_list.append({
+                'id': str(p[0]),
+                'name': p[1],
+                'course': p[2]
+            })
+        
+        return professors_list
 
 if __name__ == "__main__":
     import uvicorn
