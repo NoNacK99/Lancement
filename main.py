@@ -82,7 +82,7 @@ class AnalysisResponse(BaseModel):
 async def get_db_connection():
     """Obtenir une connexion à la base de données"""
     try:
-        return await AsyncConnection.connect(DATABASE_URL)
+        return await AsyncConnection.connect(DATABASE_URL,autocommit=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur connexion DB: {str(e)}")
 
