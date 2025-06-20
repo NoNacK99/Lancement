@@ -45,7 +45,6 @@ ALGORITHM = "HS256"
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.pkzomtcfhtuwnlkgnwzl:hxJejwD9bhIQs2ht@aws-0-ca-central-1.pooler.supabase.com:6543/postgres")
 
 # 🤖 Configuration IA
-CLAUDE_API_KEY = os.getenv("CLAUDE_API_KEY", "your-claude-key")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-openai-key")
 
 # Initialisation des clients IA
