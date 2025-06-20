@@ -225,12 +225,12 @@ async def login_professor(professor_data: ProfessorLogin):
     finally:
         await conn.close()
 
-# 📋 Soumissions - CORRIGÉE
+# 📋 Soumissions - CORRIGÉE avec conversion email → UUID
 @app.post("/submissions", response_model=SubmissionResponse)
 async def create_submission(
     student_name: str = Form(...),
     student_email: str = Form(...),
-    professor_id: str = Form(...),
+    professor_id: str = Form(...),  # Reçoit l'email du professeur
     project_title: str = Form(...),
     file: UploadFile = File(...)
 ):
@@ -247,7 +247,7 @@ async def create_submission(
     file_extension = file.filename.split('.')[-1]
     unique_filename = f"{uuid.uuid4()}.{file_extension}"
     
-    # Sauvegarder le fichier (simplifié - en prod: cloud storage)
+    # Sauvegarder le fichier
     upload_dir = "uploads"
     os.makedirs(upload_dir, exist_ok=True)
     file_path = f"{upload_dir}/{unique_filename}"
@@ -259,9 +259,21 @@ async def create_submission(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur sauvegarde fichier: {str(e)}")
     
-    # Insérer en base
+    # Connexion base de données
     conn = await get_db_connection()
     try:
+        # 🆕 NOUVELLE ÉTAPE : Convertir email professeur → UUID
+        prof_query = "SELECT id FROM professors WHERE email = %s"
+        prof_cursor = await conn.execute(prof_query, (professor_id,))
+        professor = await prof_cursor.fetchone()
+        
+        if not professor:
+            raise HTTPException(status_code=400, detail=f"Professeur non trouvé: {professor_id}")
+        
+        # Récupérer l'UUID du professeur
+        actual_professor_id = str(professor[0])
+        
+        # Insérer la soumission avec l'UUID correct
         query = """
         INSERT INTO submissions (student_name, student_email, professor_id, project_title, file_url, file_name, file_size)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -269,7 +281,7 @@ async def create_submission(
         """
         cursor = await conn.execute(
             query, 
-            (student_name, student_email, professor_id, project_title, file_path, file.filename, len(content))
+            (student_name, student_email, actual_professor_id, project_title, file_path, file.filename, len(content))
         )
         submission = await cursor.fetchone()
         
@@ -288,13 +300,13 @@ async def create_submission(
         }
         
         return SubmissionResponse(**submission_dict)
+        
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erreur DB soumission: {str(e)}")
     finally:
         await conn.close()
-
 # 📊 Dashboard professeur - CORRIGÉ
 @app.get("/professor/dashboard")
 async def get_professor_dashboard(professor_id: str = Depends(get_current_professor)):
