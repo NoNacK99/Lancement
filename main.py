@@ -313,7 +313,9 @@ async def root():
 async def health_check():
     """Check de santé de l'API"""
     return {"status": "healthy", "timestamp": datetime.utcnow(), "ai_ready": "GPT-4"}
-
+@app.get("/test-ai.html")
+async def serve_test_ai():
+    return FileResponse("test-ai.html")
 # 🌐 Routes pour servir les pages HTML
 @app.get("/student")
 async def student_page():
