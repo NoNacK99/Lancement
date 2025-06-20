@@ -80,11 +80,7 @@ class AnalysisResponse(BaseModel):
 
 # 🔌 Connexion base de données
 async def get_db_connection():
-    conn = await AsyncConnection.connect(DATABASE_URL)
-    try:
-        yield conn
-    finally:
-        await conn.close()
+  return await AsyncConnection.connect(DATABASE_URL)
 
 # 🔐 Authentification JWT
 def create_access_token(data: dict):
@@ -140,13 +136,28 @@ async def student_page():
     else:
         raise HTTPException(status_code=404, detail="Page étudiant non trouvée")
 
-@app.get("/professor") 
-async def professor_page():
-    """Page dashboard pour les professeurs"""
-    if os.path.exists("professor.html"):
-        return FileResponse("professor.html")
-    else:
-        raise HTTPException(status_code=404, detail="Page professeur non trouvée")
+@app.get("/professors")
+async def get_professors():
+    """Liste des professeurs pour le dropdown frontend"""
+    conn = await get_db_connection()
+    try:
+        query = "SELECT id, name, course FROM professors ORDER BY name"
+        cursor = await conn.execute(query)
+        professors = await cursor.fetchall()
+        
+        professors_list = []
+        for p in professors:
+            professors_list.append({
+                'id': str(p[0]),
+                'name': p[1],
+                'course': p[2]
+            })
+        
+        return professors_list
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur base de données: {str(e)}")
+    finally:
+        await conn.close()
 
 # 🔐 Authentification
 @app.post("/auth/login")
