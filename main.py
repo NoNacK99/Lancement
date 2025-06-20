@@ -16,7 +16,6 @@ from datetime import datetime, timedelta
 import aiofiles
 import uuid
 import openai
-import anthropic
 import asyncio
 import PyPDF2
 import io
