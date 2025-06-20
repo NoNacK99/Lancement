@@ -646,7 +646,22 @@ document.getElementById('businessPlanForm').addEventListener('submit', async fun
         submitBtn.disabled = false;
     }
 });
-
+async function simulateSubmissionProcess() {
+    const steps = [
+        { progress: 10, text: "📤 Téléchargement du document..." },
+        { progress: 30, text: "🔍 Validation du fichier..." },
+        { progress: 50, text: "📋 Traitement des informations..." },
+        { progress: 70, text: "📧 Transmission au professeur..." },
+        { progress: 90, text: "✅ Finalisation..." },
+        { progress: 100, text: "🎉 Soumission réussie !" }
+    ];
+    
+    for (const step of steps) {
+        await new Promise(resolve => setTimeout(resolve, 800));
+        document.getElementById('progressFill').style.width = step.progress + '%';
+        document.getElementById('progressText').textContent = step.text;
+    }
+}
 // Fonction pour afficher le succès avec les vraies données
 function displaySuccessMessage(submissionData) {
     const professors = {
