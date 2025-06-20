@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Analyse IA</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            background: rgba(255,255,255,0.1);
+            padding: 30px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        button {
+            background: linear-gradient(135deg, #4CAF50 0%, #45A049 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 10px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .loading {
+            text-align: center;
+            font-style: italic;
+        }
+        .success {
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            border-left: 4px solid #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 Test de l'Analyse IA</h1>
+        
+        <div class="test-section">
+            <h3>📊 Test de santé de l'API</h3>
+            <button onclick="testHealth()">Tester /health</button>
+            <div id="healthResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Test de l'analyse IA sur votre soumission</h3>
+            <p>ID de test : <code>5cec6352-82ad-4d51-aef8-8194b0ec29e8</code></p>
+            <button onclick="testAI()" id="aiButton">🚀 Lancer l'Analyse IA</button>
+            <div id="aiResult" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 Vérifier les soumissions</h3>
+            <button onclick="checkSubmissions()">Voir les soumissions</button>
+            <div id="submissionsResult" class="result" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testHealth() {
+            const resultDiv = document.getElementById('healthResult');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '⏳ Test en cours...';
+            resultDiv.className = 'result loading';
+
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                
+                resultDiv.textContent = `✅ API en santé !\n\nRéponse: ${JSON.stringify(data, null, 2)}`;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.textContent = `❌ Erreur: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+
+        async function testAI() {
+            const button = document.getElementById('aiButton');
+            const resultDiv = document.getElementById('aiResult');
+            
+            button.disabled = true;
+            button.textContent = '⏳ Analyse en cours...';
+            
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '🤖 Lancement de l\'analyse IA avec GPT-4...\nCela peut prendre 30-60 secondes...';
+            resultDiv.className = 'result loading';
+
+            try {
+                const response = await fetch('/submissions/5cec6352-82ad-4d51-aef8-8194b0ec29e8/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                resultDiv.textContent = `🎉 SUCCÈS ! Analyse IA terminée !\n\n${JSON.stringify(data, null, 2)}`;
+                resultDiv.className = 'result success';
+                
+                // Afficher un message de succès
+                alert('🎉 Analyse IA réussie ! Vérifiez le résultat ci-dessous et dans Supabase (table analyses).');
+                
+            } catch (error) {
+                resultDiv.textContent = `❌ Erreur lors de l'analyse IA:\n\n${error.message}`;
+                resultDiv.className = 'result error';
+            } finally {
+                button.disabled = false;
+                button.textContent = '🚀 Lancer l\'Analyse IA';
+            }
+        }
+
+        async function checkSubmissions() {
+            const resultDiv = document.getElementById('submissionsResult');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = '⏳ Récupération des soumissions...';
+            resultDiv.className = 'result loading';
+
+            try {
+                const response = await fetch('/professors');
+                const data = await response.json();
+                
+                resultDiv.textContent = `✅ Professeurs disponibles :\n\n${JSON.stringify(data, null, 2)}`;
+                resultDiv.className = 'result success';
+            } catch (error) {
+                resultDiv.textContent = `❌ Erreur: ${error.message}`;
+                resultDiv.className = 'result error';
+            }
+        }
+    </script>
+</body>
+</html>
