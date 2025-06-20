@@ -255,6 +255,18 @@
             background: linear-gradient(135deg, #f8faff 0%, #f0f6ff 100%);
         }
         
+        .sortable-header {
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            user-select: none;
+        }
+        
+        .sortable-header:hover {
+            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
+            color: #4facfe;
+        }
+        
         .status-badge {
             padding: 6px 14px;
             border-radius: 20px;
@@ -405,30 +417,6 @@
             text-align: center;
             padding: 60px 20px;
             color: #666;
-        }
-        
-        .sortable-header {
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-            user-select: none;
-        }
-        
-        .sortable-header:hover {
-            background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%);
-            color: #4facfe;
-        }
-        
-        .sort-indicator {
-            margin-left: 8px;
-            font-size: 0.8em;
-            opacity: 0.6;
-        }
-        
-        .sort-indicator.active {
-            opacity: 1;
-            color: #4facfe;
-            font-weight: bold;
         }
         
         .empty-state-icon {
@@ -766,39 +754,31 @@
             }
         };
 
-        // Initialiser quand la page est chargée
-        document.addEventListener('DOMContentLoaded', function() {
-            setupLoginForm();
-        });
+        // Variables de tri
+        let sortColumn = null;
+        let sortDirection = 'asc';
 
-        function setupLoginForm() {
-            // Gestion du login
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
             document.getElementById('loginForm').addEventListener('submit', function(e) {
                 e.preventDefault();
                 
-                const email = document.getElementById('email').value.trim();
-                const password = document.getElementById('password').value.trim();
-                
-                console.log('Tentative de connexion:', email); // Debug
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
                 
                 if (professorAccounts[email] && professorAccounts[email].password === password) {
-                    // Login réussi
-                    console.log('Login réussi pour:', email); // Debug
                     document.getElementById('loginContainer').style.display = 'none';
                     document.getElementById('dashboardContainer').style.display = 'block';
                     
-                    // Mettre à jour les informations du professeur
                     document.getElementById('professorName').textContent = professorAccounts[email].name;
                     document.getElementById('professorCourse').textContent = professorAccounts[email].course;
                     
-                    // Initialiser le dashboard
                     initializeDashboard();
                 } else {
-                    console.log('Échec de connexion pour:', email); // Debug
-                    alert('Email ou mot de passe incorrect.\n\nEssayez:\nmarie.dubois@university.ca\nprof123');
+                    alert('Email ou mot de passe incorrect.');
                 }
             });
-        }
+        });
 
         function logout() {
             document.getElementById('loginContainer').style.display = 'flex';
@@ -817,7 +797,6 @@
             const processing = studentsData.filter(s => s.status === 'processing').length;
             const total = studentsData.length;
             
-            // Calculer le score moyen des analyses terminées
             const completedStudents = studentsData.filter(s => s.status === 'completed' && s.score);
             const averageScore = completedStudents.length > 0 
                 ? Math.round(completedStudents.reduce((sum, s) => sum + s.score, 0) / completedStudents.length)
@@ -829,16 +808,16 @@
             document.getElementById('averageScore').textContent = averageScore;
         }
 
-        function renderStudentsTable(filteredData = null) {
-            const data = filteredData || studentsData;
+        function renderStudentsTable(data = null) {
+            const displayData = data || studentsData;
             const container = document.getElementById('studentsTableContainer');
             
-            if (data.length === 0) {
+            if (displayData.length === 0) {
                 container.innerHTML = `
                     <div class="empty-state">
                         <div class="empty-state-icon">📭</div>
-                        <h3>Aucun plan d'affaires soumis</h3>
-                        <p>Les étudiants n'ont pas encore commencé à soumettre leurs projets.</p>
+                        <h3>Aucun plan d'affaires trouvé</h3>
+                        <p>Aucun résultat ne correspond à vos critères de recherche.</p>
                     </div>
                 `;
                 return;
@@ -848,16 +827,20 @@
                 <table class="students-table">
                     <thead>
                         <tr>
-                            <th>👤 Étudiant</th>
+                            <th class="sortable-header" onclick="sortTable('name')">
+                                👤 Étudiant ${getSortIcon('name')}
+                            </th>
                             <th>📋 Projet</th>
-                            <th>📅 Soumission</th>
+                            <th class="sortable-header" onclick="sortTable('date')">
+                                📅 Soumission ${getSortIcon('date')}
+                            </th>
                             <th>📊 Statut</th>
                             <th>🎯 Score</th>
                             <th>⚙️ Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${data.map(student => `
+                        ${displayData.map(student => `
                             <tr>
                                 <td>
                                     <div style="font-weight: 600; color: #333; margin-bottom: 4px;">${student.name}</div>
@@ -896,63 +879,68 @@
             container.innerHTML = tableHTML;
         }
 
-        function setupEventListeners() {
-            // Recherche en temps réel
-            document.getElementById('searchBox').addEventListener('input', function(e) {
-                applyFiltersAndSort();
-            });
-
-            // Filtre par statut
-            document.getElementById('statusFilter').addEventListener('change', function(e) {
-                applyFiltersAndSort();
-            });
+        function getSortIcon(column) {
+            if (sortColumn !== column) return '↕️';
+            return sortDirection === 'asc' ? '▲' : '▼';
         }
 
-        function applyFiltersAndSort() {
-            let filteredData = [...studentsData];
-            
-            // Appliquer le tri actuel
-            if (currentSort.column) {
-                if (currentSort.column === 'name') {
-                    filteredData.sort((a, b) => {
-                        const nameA = a.name.toLowerCase();
-                        const nameB = b.name.toLowerCase();
-                        if (currentSort.direction === 'asc') {
-                            return nameA.localeCompare(nameB);
-                        } else {
-                            return nameB.localeCompare(nameA);
-                        }
-                    });
-                } else if (currentSort.column === 'date') {
-                    filteredData.sort((a, b) => {
-                        const dateA = new Date(a.submissionDate);
-                        const dateB = new Date(b.submissionDate);
-                        if (currentSort.direction === 'asc') {
-                            return dateA - dateB;
-                        } else {
-                            return dateB - dateA;
-                        }
-                    });
-                }
+        function sortTable(column) {
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'asc';
             }
+
+            let sortedData = getFilteredData();
             
-            // Appliquer les filtres
+            if (column === 'name') {
+                sortedData.sort((a, b) => {
+                    const comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                });
+            } else if (column === 'date') {
+                sortedData.sort((a, b) => {
+                    const dateA = new Date(a.submissionDate);
+                    const dateB = new Date(b.submissionDate);
+                    const comparison = dateA - dateB;
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                });
+            }
+
+            renderStudentsTable(sortedData);
+        }
+
+        function getFilteredData() {
+            let filtered = [...studentsData];
+            
             const searchQuery = document.getElementById('searchBox').value.toLowerCase();
-            const statusFilter = document.getElementById('statusFilter').value;
-            
             if (searchQuery) {
-                filteredData = filteredData.filter(student => 
+                filtered = filtered.filter(student => 
                     student.name.toLowerCase().includes(searchQuery) || 
                     student.email.toLowerCase().includes(searchQuery) ||
                     student.project.toLowerCase().includes(searchQuery)
                 );
             }
             
+            const statusFilter = document.getElementById('statusFilter').value;
             if (statusFilter !== 'all') {
-                filteredData = filteredData.filter(s => s.status === statusFilter);
+                filtered = filtered.filter(s => s.status === statusFilter);
             }
+            
+            return filtered;
+        }
 
-            renderStudentsTable(filteredData);
+        function setupEventListeners() {
+            document.getElementById('searchBox').addEventListener('input', function() {
+                const filtered = getFilteredData();
+                renderStudentsTable(filtered);
+            });
+
+            document.getElementById('statusFilter').addEventListener('change', function() {
+                const filtered = getFilteredData();
+                renderStudentsTable(filtered);
+            });
         }
 
         function formatDate(dateString) {
@@ -1029,84 +1017,7 @@
                         <p style="line-height: 1.6; color: #333;">
                             Ce plan d'affaires présente un projet ${student.project.toLowerCase()} avec un potentiel commercial intéressant. 
                             L'analyse révèle des forces notables dans la conception du produit/service et l'identification du marché cible. 
-                            Cependant, certains aspects nécessitent un approfondissement, notamment l'analyse concurrentielle et les projections financières.
-                        </p>
-                    </div>
-                </div>
-
-                <div style="margin: 30px 0;">
-                    <h3 style="color: #333; margin-bottom: 15px;">💡 Points Forts Identifiés</h3>
-                    <div style="background: #e8f5e8; padding: 20px; border-radius: 12px; border-left: 4px solid #4CAF50;">
-                        <ul style="margin-left: 20px; line-height: 1.8;">
-                            <li>Proposition de valeur claire et différenciante</li>
-                            <li>Connaissance approfondie du secteur d'activité</li>
-                            <li>Identification précise des besoins clients</li>
-                            <li>Approche méthodique de la planification</li>
-                            <li>Vision à long terme bien articulée</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div style="margin: 30px 0;">
-                    <h3 style="color: #333; margin-bottom: 15px;">🔧 Axes d'Amélioration</h3>
-                    <div style="background: #fff3e0; padding: 20px; border-radius: 12px; border-left: 4px solid #FF9800;">
-                        <ul style="margin-left: 20px; line-height: 1.8;">
-                            <li>Renforcer l'analyse concurrentielle avec benchmarking détaillé</li>
-                            <li>Développer des scénarios financiers multiples (pessimiste/réaliste/optimiste)</li>
-                            <li>Approfondir la stratégie de lancement et go-to-market</li>
-                            <li>Élaborer un plan de gestion des risques plus complet</li>
-                            <li>Préciser les besoins en financement et sources potentielles</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div style="margin: 30px 0;">
-                    <h3 style="color: #333; margin-bottom: 15px;">📚 Recommandations Pédagogiques</h3>
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 12px;">
-                        <h4 style="color: #555; margin-bottom: 10px;">Lectures recommandées :</h4>
-                        <ul style="margin-left: 20px; line-height: 1.6; margin-bottom: 15px;">
-                            <li>"Business Model Generation" d'Alexander Osterwalder</li>
-                            <li>"The Lean Startup" d'Eric Ries</li>
-                            <li>"Crossing the Chasm" de Geoffrey Moore</li>
-                        </ul>
-                        
-                        <h4 style="color: #555; margin-bottom: 10px;">Prochaines étapes suggérées :</h4>
-                        <ol style="margin-left: 20px; line-height: 1.6;">
-                            <li>Réaliser 10-15 interviews clients pour valider les hypothèses</li>
-                            <li>Développer un prototype ou MVP pour tester le concept</li>
-                            <li>Effectuer une analyse concurrentielle approfondie</li>
-                            <li>Créer des projections financières avec plusieurs scénarios</li>
-                        </ol>
-                    </div>
-                </div>
-
-                <div style="margin: 30px 0;">
-                    <h3 style="color: #333; margin-bottom: 15px;">📊 Évaluation Détaillée par Critère</h3>
-                    
-                    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
-                        <h4 style="color: #4facfe; margin-bottom: 10px;">🎯 Viabilité du Concept (16/20)</h4>
-                        <p style="line-height: 1.6; color: #333;">
-                            Le concept présente une innovation intéressante avec une proposition de valeur claire. 
-                            Le problème client est bien identifié et la solution proposée semble appropriée. 
-                            Point d'amélioration : validation terrain avec des utilisateurs potentiels.
-                        </p>
-                    </div>
-
-                    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
-                        <h4 style="color: #4facfe; margin-bottom: 10px;">📊 Étude de Marché (14/20)</h4>
-                        <p style="line-height: 1.6; color: #333;">
-                            L'analyse de marché couvre les aspects essentiels avec des données quantitatives pertinentes. 
-                            La segmentation client est présente mais pourrait être plus précise. 
-                            L'analyse concurrentielle nécessite un approfondissement.
-                        </p>
-                    </div>
-
-                    <div style="background: white; border: 1px solid #e0e0e0; border-radius: 12px; padding: 20px; margin-bottom: 15px;">
-                        <h4 style="color: #4facfe; margin-bottom: 10px;">💰 Modèle Économique (15/20)</h4>
-                        <p style="line-height: 1.6; color: #333;">
-                            Le modèle de revenus est clairement défini avec des sources identifiées. 
-                            La structure de coûts est présente mais pourrait être plus détaillée. 
-                            Les projections de rentabilité semblent réalistes.
+                            Cependant, certains aspects nécessitent un approfondissement.
                         </p>
                     </div>
                 </div>
@@ -1114,7 +1025,7 @@
                 <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 16px; text-align: center; margin-top: 30px;">
                     <h3 style="margin-bottom: 10px;">✅ Évaluation Terminée</h3>
                     <p style="opacity: 0.9;">
-                        Rapport généré automatiquement • Analyse approfondie en 7min 23sec<br>
+                        Rapport généré automatiquement • Analyse en 7min 23sec<br>
                         Email envoyé le ${formatDate(student.lastActivity)} à ${formatTime(student.lastActivity)}
                     </p>
                 </div>
@@ -1129,22 +1040,16 @@
             const student = studentsData.find(s => s.id === studentId);
             if (!student) return;
             
-            // Copier l'email dans le presse-papier
             navigator.clipboard.writeText(student.email).then(function() {
-                // Succès
-                alert(`📋 Email copié dans le presse-papier !\n\n${student.email}\n\nVous pouvez maintenant l'utiliser dans votre plateforme email préférée.`);
-            }).catch(function(err) {
-                // Fallback si clipboard API ne fonctionne pas
-                console.error('Erreur copie:', err);
-                // Créer un élément temporaire pour la copie
+                alert(`📋 Email copié !\n\n${student.email}`);
+            }).catch(function() {
                 const tempInput = document.createElement('input');
                 tempInput.value = student.email;
                 document.body.appendChild(tempInput);
                 tempInput.select();
                 document.execCommand('copy');
                 document.body.removeChild(tempInput);
-                
-                alert(`📋 Email copié dans le presse-papier !\n\n${student.email}\n\nVous pouvez maintenant l'utiliser dans votre plateforme email préférée.`);
+                alert(`📋 Email copié !\n\n${student.email}`);
             });
         }
 
@@ -1152,12 +1057,7 @@
             const student = studentsData.find(s => s.id === studentId);
             if (!student) return;
             
-            const statusMessages = {
-                'processing': `⏳ Analyse en cours pour ${student.name}\n\nÉtapes:\n✅ Document reçu\n🔄 Analyse en cours (étape 2/4)\n⏳ Génération du rapport\n⏳ Envoi par email`,
-                'pending': `⏸️ En attente de traitement pour ${student.name}\n\nLe document a été reçu et sera traité prochainement.`
-            };
-            
-            alert(statusMessages[student.status] || 'Statut inconnu');
+            alert(`⏳ Analyse en cours pour ${student.name}\n\nLe traitement est en cours...`);
         }
 
         function exportToCSV() {
@@ -1190,98 +1090,6 @@
             
             alert('📊 Export CSV téléchargé avec succès !');
         }
-
-        // Simulation d'ajout de nouveaux étudiants (pour démo)
-        function simulateNewSubmission() {
-            const newStudents = [
-                { name: "Sarah Lebrun", email: "sarah.lebrun@university.ca", project: "Application fitness connectée" },
-                { name: "David Rousseau", email: "david.rousseau@university.ca", project: "Marketplace services à domicile" },
-                { name: "Amélie Fournier", email: "amelie.fournier@university.ca", project: "Startup EdTech - apprentissage adaptatif" }
-            ];
-            
-            // Ajouter un nouvel étudiant toutes les 30 secondes (pour démo)
-            setInterval(() => {
-                if (newStudents.length > 0 && studentsData.length < 20) {
-                    const newStudent = newStudents.shift();
-                    const now = new Date();
-                    
-                    studentsData.push({
-                        id: studentsData.length + 1,
-                        name: newStudent.name,
-                        email: newStudent.email,
-                        project: newStudent.project,
-                        status: "processing",
-                        submissionDate: now.toISOString().slice(0, 19).replace('T', ' '),
-                        score: null,
-                        lastActivity: now.toISOString().slice(0, 19).replace('T', ' ')
-                    });
-                    
-                    updateStats();
-                    renderStudentsTable();
-                    
-                    // Simuler le passage en "completed" après 2 minutes
-                    setTimeout(() => {
-                        const student = studentsData[studentsData.length - 1];
-                        student.status = "completed";
-                        student.score = Math.floor(Math.random() * 30) + 70; // Score entre 70 et 100
-                        student.lastActivity = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                        
-            // Actualiser les stats après chaque modification
-            updateStats();
-            
-            // Re-rendre le tableau pour mettre à jour les tri
-            renderStudentsTable();
-                    }, 120000); // 2 minutes
-                }
-            }, 30000); // 30 secondes
-        }
-
-        // Simulation d'ajout de nouveaux étudiants (pour démo)
-        function simulateNewSubmission() {
-            const newStudents = [
-                { name: "Sarah Lebrun", email: "sarah.lebrun@university.ca", project: "Application fitness connectée" },
-                { name: "David Rousseau", email: "david.rousseau@university.ca", project: "Marketplace services à domicile" },
-                { name: "Amélie Fournier", email: "amelie.fournier@university.ca", project: "Startup EdTech - apprentissage adaptatif" }
-            ];
-            
-            // Ajouter un nouvel étudiant toutes les 30 secondes (pour démo)
-            setInterval(() => {
-                if (newStudents.length > 0 && studentsData.length < 20) {
-                    const newStudent = newStudents.shift();
-                    const now = new Date();
-                    
-                    studentsData.push({
-                        id: studentsData.length + 1,
-                        name: newStudent.name,
-                        email: newStudent.email,
-                        project: newStudent.project,
-                        status: "processing",
-                        submissionDate: now.toISOString().slice(0, 19).replace('T', ' '),
-                        score: null,
-                        lastActivity: now.toISOString().slice(0, 19).replace('T', ' ')
-                    });
-                    
-                    updateStats();
-                    const currentData = getCurrentData();
-                    renderStudentsTable(currentData);
-                    
-                    // Simuler le passage en "completed" après 2 minutes
-                    setTimeout(() => {
-                        const student = studentsData[studentsData.length - 1];
-                        student.status = "completed";
-                        student.score = Math.floor(Math.random() * 30) + 70; // Score entre 70 et 100
-                        student.lastActivity = new Date().toISOString().slice(0, 19).replace('T', ' ');
-                        
-                        updateStats();
-                        const currentData = getCurrentData();
-                        renderStudentsTable(currentData);
-                    }, 120000); // 2 minutes
-                }
-            }, 30000); // 30 secondes
-        }
-
-        // Démarrer la simulation pour la démo
-        setTimeout(simulateNewSubmission, 5000);
 
         // Fermer le modal en cliquant à l'extérieur
         document.getElementById('reportModal').addEventListener('click', function(e) {
