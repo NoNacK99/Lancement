@@ -1,5 +1,5 @@
 # 🚀 API FastAPI - Plateforme Plans d'Affaires
-# Version basique pour commencer zen !
+# Version finale optimisée avec corrections DB et port
 
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
@@ -78,9 +78,13 @@ class AnalysisResponse(BaseModel):
     generated_at: datetime
     processing_time_seconds: Optional[int]
 
-# 🔌 Connexion base de données
+# 🔌 Connexion base de données (CORRIGÉE)
 async def get_db_connection():
-  return await AsyncConnection.connect(DATABASE_URL)
+    """Obtenir une connexion à la base de données"""
+    try:
+        return await AsyncConnection.connect(DATABASE_URL)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur connexion DB: {str(e)}")
 
 # 🔐 Authentification JWT
 def create_access_token(data: dict):
@@ -136,6 +140,15 @@ async def student_page():
     else:
         raise HTTPException(status_code=404, detail="Page étudiant non trouvée")
 
+@app.get("/professor") 
+async def professor_page():
+    """Page dashboard pour les professeurs"""
+    if os.path.exists("professor.html"):
+        return FileResponse("professor.html")
+    else:
+        raise HTTPException(status_code=404, detail="Page professeur non trouvée")
+
+# 📊 Professeurs disponibles (pour frontend) - CORRIGÉ
 @app.get("/professors")
 async def get_professors():
     """Liste des professeurs pour le dropdown frontend"""
@@ -155,15 +168,16 @@ async def get_professors():
         
         return professors_list
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur base de données: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur DB: {str(e)}")
     finally:
         await conn.close()
 
-# 🔐 Authentification
+# 🔐 Authentification - CORRIGÉE
 @app.post("/auth/login")
 async def login_professor(professor_data: ProfessorLogin):
     """Login professeur"""
-    async with get_db_connection().__anext__() as conn:
+    conn = await get_db_connection()
+    try:
         # Vérifier le professeur
         query = """
         SELECT id, email, password_hash, name, course 
@@ -204,8 +218,14 @@ async def login_professor(professor_data: ProfessorLogin):
                 "course": professor_dict['course']
             }
         }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur login: {str(e)}")
+    finally:
+        await conn.close()
 
-# 📋 Soumissions
+# 📋 Soumissions - CORRIGÉE
 @app.post("/submissions", response_model=SubmissionResponse)
 async def create_submission(
     student_name: str = Form(...),
@@ -220,7 +240,7 @@ async def create_submission(
     if not file.filename.endswith(('.pdf', '.doc', '.docx')):
         raise HTTPException(status_code=400, detail="Format de fichier non supporté")
     
-    if file.size > 15 * 1024 * 1024:  # 15MB
+    if file.size and file.size > 15 * 1024 * 1024:  # 15MB
         raise HTTPException(status_code=400, detail="Fichier trop volumineux")
     
     # Générer nom de fichier unique
@@ -232,12 +252,16 @@ async def create_submission(
     os.makedirs(upload_dir, exist_ok=True)
     file_path = f"{upload_dir}/{unique_filename}"
     
-    async with aiofiles.open(file_path, 'wb') as f:
-        content = await file.read()
-        await f.write(content)
+    try:
+        async with aiofiles.open(file_path, 'wb') as f:
+            content = await file.read()
+            await f.write(content)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur sauvegarde fichier: {str(e)}")
     
     # Insérer en base
-    async with get_db_connection().__anext__() as conn:
+    conn = await get_db_connection()
+    try:
         query = """
         INSERT INTO submissions (student_name, student_email, professor_id, project_title, file_url, file_name, file_size)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -248,6 +272,9 @@ async def create_submission(
             (student_name, student_email, professor_id, project_title, file_path, file.filename, len(content))
         )
         submission = await cursor.fetchone()
+        
+        if not submission:
+            raise HTTPException(status_code=500, detail="Erreur création soumission")
         
         # Convertir en dict
         submission_dict = {
@@ -261,11 +288,19 @@ async def create_submission(
         }
         
         return SubmissionResponse(**submission_dict)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur DB soumission: {str(e)}")
+    finally:
+        await conn.close()
 
+# 📊 Dashboard professeur - CORRIGÉ
 @app.get("/professor/dashboard")
 async def get_professor_dashboard(professor_id: str = Depends(get_current_professor)):
     """Dashboard professeur avec toutes ses soumissions"""
-    async with get_db_connection().__anext__() as conn:
+    conn = await get_db_connection()
+    try:
         query = """
         SELECT 
             s.id,
@@ -314,11 +349,17 @@ async def get_professor_dashboard(professor_id: str = Depends(get_current_profes
             },
             "submissions": submissions_list
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur dashboard: {str(e)}")
+    finally:
+        await conn.close()
 
+# 📋 Analyse individuelle - CORRIGÉE
 @app.get("/submissions/{submission_id}/analysis")
 async def get_analysis(submission_id: str, professor_id: str = Depends(get_current_professor)):
     """Récupérer l'analyse d'une soumission"""
-    async with get_db_connection().__anext__() as conn:
+    conn = await get_db_connection()
+    try:
         # Vérifier que la soumission appartient au professeur
         query_check = """
         SELECT id FROM submissions 
@@ -350,12 +391,19 @@ async def get_analysis(submission_id: str, professor_id: str = Depends(get_curre
         }
         
         return AnalysisResponse(**analysis_dict)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur analyse: {str(e)}")
+    finally:
+        await conn.close()
 
-# 🤖 Simulation analyse IA (pour test)
+# 🤖 Simulation analyse IA (pour test) - CORRIGÉE
 @app.post("/submissions/{submission_id}/analyze")
 async def trigger_analysis(submission_id: str):
     """Déclencher l'analyse IA d'une soumission"""
-    async with get_db_connection().__anext__() as conn:
+    conn = await get_db_connection()
+    try:
         # Mettre à jour le statut
         await conn.execute(
             "UPDATE submissions SET status = 'processing' WHERE id = %s",
@@ -404,26 +452,9 @@ async def trigger_analysis(submission_id: str):
         )
         
         return {"message": "Analyse terminée", "submission_id": submission_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur analyse: {str(e)}")
+    finally:
+        await conn.close()
 
-# 📊 Professeurs disponibles (pour frontend)
-@app.get("/professors")
-async def get_professors():
-    """Liste des professeurs pour le dropdown frontend"""
-    async with get_db_connection().__anext__() as conn:
-        query = "SELECT id, name, course FROM professors ORDER BY name"
-        cursor = await conn.execute(query)
-        professors = await cursor.fetchall()
-        
-        professors_list = []
-        for p in professors:
-            professors_list.append({
-                'id': str(p[0]),
-                'name': p[1],
-                'course': p[2]
-            })
-        
-        return professors_list
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("PORT", 8000)))  # ✅ Port dynamique
+# 🚀 PAS de bloc if __name__ == "__main__" - Render gère le port automatiquement
