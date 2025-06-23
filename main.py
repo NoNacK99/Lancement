@@ -1,12 +1,12 @@
 # 🚀 API FastAPI - Plateforme Plans d'Affaires
-# Version OpenAI seulement - SANS erreurs Claude
+# Version avec IA réelle intégrée !
 
-from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Form
+from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List, Dict, Any
+from typing import Optional, List
 import psycopg
 from psycopg import AsyncConnection
 import os
@@ -15,8 +15,10 @@ import jwt
 from datetime import datetime, timedelta
 import aiofiles
 import uuid
-import openai
-import asyncio
+import json
+
+# Import du module d'analyse IA
+from ai_analyzer import extract_text_from_file, analyze_business_plan, generate_formatted_report
 
 # 🔧 Configuration
 app = FastAPI(
@@ -40,11 +42,7 @@ SECRET_KEY = os.getenv("JWT_SECRET", "your-secret-key-change-in-prod")
 ALGORITHM = "HS256"
 
 # 🗃️ Configuration base de données - VOTRE SUPABASE
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.pkzomtcfhtuwnlkgnwzl:hxJejwD9bhIQs2ht@aws-0-ca-central-1.pooler.supabase.com:6543/postgres")
-
-# 🤖 Configuration IA (OpenAI seulement)
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "your-openai-key")
-openai.api_key = OPENAI_API_KEY
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:hxJejwD9bhIQs2ht@db.pkzomtcfhtuwn1kgnwzl.supabase.co:5432/postgres")
 
 # 📊 Modèles Pydantic
 class ProfessorLogin(BaseModel):
@@ -71,201 +69,23 @@ class SubmissionResponse(BaseModel):
     status: str
     submission_date: datetime
     file_name: Optional[str]
+    score: Optional[int] = None
 
 class AnalysisResponse(BaseModel):
     id: str
     submission_id: str
     report_content: str
+    score_global: int
     generated_at: datetime
     processing_time_seconds: Optional[int]
 
 # 🔌 Connexion base de données
 async def get_db_connection():
-    """Obtenir une connexion à la base de données"""
+    conn = await AsyncConnection.connect(DATABASE_URL)
     try:
-        conn = await AsyncConnection.connect(DATABASE_URL, autocommit=True)
-        return conn
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur connexion DB: {str(e)}")
-
-# 📄 Fonction pour simuler l'extraction de texte (sans PyPDF2 pour simplifier)
-async def extract_text_from_file(file_path: str) -> str:
-    """Simuler l'extraction de texte d'un fichier"""
-    return f"""Plan d'affaires soumis - {file_path}
-
-CONTENU SIMULÉ POUR ANALYSE IA:
-
-1. RÉSUMÉ EXÉCUTIF
-Notre projet vise à développer une solution innovante dans le domaine de l'entrepreneuriat étudiant.
-
-2. DESCRIPTION DU PROJET
-Une plateforme qui répond aux besoins identifiés du marché cible avec une approche unique.
-
-3. ANALYSE DE MARCHÉ
-Marché en croissance avec des opportunités significatives pour les nouveaux entrants.
-
-4. MODÈLE ÉCONOMIQUE
-Modèle de revenus basé sur des sources diversifiées et durables.
-
-5. STRATÉGIE MARKETING
-Approche ciblée pour atteindre et fidéliser notre clientèle.
-
-6. PROJECTIONS FINANCIÈRES
-Prévisions réalistes avec scenarios multiples pour les 3 prochaines années.
-
-7. PLAN DE DÉVELOPPEMENT
-Étapes claires pour la mise en œuvre et la croissance.
-
-8. ANALYSE DES RISQUES
-Identification et stratégies de mitigation des principaux risques.
-
-9. CONCLUSION
-Vision ambitieuse mais réaliste pour le développement du projet."""
-
-# 📊 Analyse complète avec ChatGPT
-async def analyze_with_chatgpt_complete(document_text: str, student_info: Dict[str, Any]) -> str:
-    """Analyse complète avec ChatGPT"""
-    prompt = f"""Tu es un professeur expérimenté qui analyse un plan d'affaires d'étudiant de niveau débutant. Donne une analyse complète et bienveillante.
-
-CONTEXTE:
-- Étudiant: {student_info['name']}
-- Email: {student_info['email']}
-- Projet: {student_info['project_title']}
-- Niveau: Formation de base en entrepreneuriat
-
-DOCUMENT À ANALYSER:
-{document_text[:7000]}
-
-CONSIGNES:
-1. Sois encourageant et constructif
-2. Donne une analyse qualitative ET structurelle
-3. Identifie les points forts et axes d'amélioration
-4. Suggère des ressources pédagogiques
-5. Utilise un ton mentor bienveillant
-
-STRUCTURE ATTENDUE:
-## 🌟 Points Forts Identifiés
-[Analyse des aspects positifs du plan]
-
-## 📊 Analyse Structurelle
-[Vérification des sections, métriques, score sur 100]
-
-## 🔧 Axes d'Amélioration
-[Suggestions concrètes d'amélioration]
-
-## 📚 Ressources Pédagogiques Suggérées
-[Livres, outils, méthodes recommandés]
-
-## 💡 Conseil Personnel du Professeur
-[Message d'encouragement et prochaines étapes]
-
-## 📈 Évaluation Globale
-[Note suggérée et justification]
-"""
-    
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=1500,
-            temperature=0.7
-        )
-        return response.choices[0].message.content
-    except Exception as e:
-        return f"""## 🌟 Points Forts Identifiés
-- Initiative entrepreneuriale démontrée par la soumission du projet
-- Effort d'organisation et de présentation du plan d'affaires
-- Démarche académique respectée avec soumission dans les délais
-- Choix du projet "{student_info['project_title']}" montre une réflexion personnelle
-
-## 📊 Analyse Structurelle
-### Sections présentes:
-- Document soumis et structure de base identifiée
-- Projet clairement identifié: {student_info['project_title']}
-- Informations étudiant complètes
-
-### Score global: 75/100
-- 15/20 pour l'initiative et la démarche
-- 12/20 pour la structure (à améliorer)
-- 13/20 pour le contenu (développement nécessaire)
-- 15/20 pour la présentation générale
-- 20/20 pour le respect des consignes de soumission
-
-## 🔧 Axes d'Amélioration
-- **Analyse de marché** : Approfondir l'étude de la concurrence et du marché cible
-- **Modèle économique** : Préciser les sources de revenus et la structure de coûts
-- **Projections financières** : Ajouter des prévisions chiffrées sur 3 ans minimum
-- **Stratégie marketing** : Développer le plan de communication et d'acquisition clients
-- **Plan opérationnel** : Détailler les étapes de mise en œuvre du projet
-
-## 📚 Ressources Pédagogiques Suggérées
-- **Livre** : "Business Model Canvas" d'Alexander Osterwalder
-- **Méthode** : Lean Startup d'Eric Ries pour valider l'idée
-- **Outil** : Canva Business Model pour structurer le modèle économique
-- **Site web** : BDC.ca pour les ressources entrepreneuriat au Canada
-- **Formation** : Ateliers entrepreneuriat de votre institution
-
-## 💡 Conseil Personnel du Professeur
-Félicitations pour avoir franchi cette première étape importante de votre parcours entrepreneurial ! Votre projet "{student_info['project_title']}" montre du potentiel. L'entrepreneuriat s'apprend par la pratique - continuez à développer votre idée, validez-la auprès de clients potentiels, et n'hésitez pas à itérer. Chaque version de votre plan vous rapproche du succès !
-
-## 📈 Évaluation Globale
-**Note suggérée: B (75/100)**
-
-**Justification:** 
-- Effort initial solide et respect des consignes
-- Potentiel entrepreneurial identifié
-- Améliorations structurelles nécessaires pour atteindre l'excellence
-- Base solide pour développer un plan d'affaires complet
-
-**Prochaines étapes recommandées:**
-1. Rencontrer 5-10 clients potentiels pour valider l'idée
-2. Rechercher 3-5 concurrents directs et indirects
-3. Chiffrer précisément les coûts de démarrage
-4. Créer un timeline détaillé de mise en œuvre
-
-*Note: Analyse de secours générée suite à une erreur API OpenAI. Erreur technique: {str(e)}*"""
-
-# 📋 Génération du rapport final
-async def generate_teacher_report_openai(chatgpt_analysis: str, student_info: Dict[str, Any]) -> str:
-    """Génère le rapport final pour l'enseignant"""
-    
-    report = f"""# 📊 Rapport d'Analyse IA - Plan d'Affaires
-
-**Étudiant :** {student_info['name']}
-**Email :** {student_info['email']}
-**Projet :** {student_info['project_title']}
-**Date d'analyse :** {datetime.now().strftime('%Y-%m-%d %H:%M')}
-
----
-
-## 🤖 Analyse Complète (GPT-4)
-{chatgpt_analysis}
-
----
-
-## 🎓 Recommandations Enseignant
-- **Temps de révision estimé :** 10-15 minutes
-- **Note suggérée :** Voir évaluation dans l'analyse ci-dessus
-- **Points à discuter :** Validation d'hypothèses, faisabilité technique
-- **Suivi recommandé :** Entretien individuel pour approfondir certains aspects
-
-## 📈 Informations Techniques
-- **IA utilisée :** GPT-4 (OpenAI)
-- **Coût de cette analyse :** ~$0.04
-- **Temps de traitement :** ~45 secondes
-- **Prochaine évolution :** Analyse double (+ Claude) bientôt disponible
-
----
-*Rapport généré automatiquement par Intelligence Artificielle GPT-4*  
-*Révision et validation enseignant recommandées avant notation finale*
-
-## 🔄 Statut du système IA
-✅ **GPT-4** : Opérationnel  
-⏳ **Claude** : En cours d'intégration  
-🎯 **Système complet** : Disponible prochainement  
-"""
-    
-    return report
+        yield conn
+    finally:
+        await conn.close()
 
 # 🔐 Authentification JWT
 def create_access_token(data: dict):
@@ -286,16 +106,102 @@ async def get_current_professor(credentials: HTTPAuthorizationCredentials = Depe
 
 # 🔧 Utilitaires
 def hash_password(password: str) -> str:
-    return hashlib.pbkdf2_hex(password.encode('utf-8'), b'salt', 100000)
+    return hashlib.sha256(password.encode('utf-8')).hexdigest()
+
+# 🤖 Fonction d'analyse IA en arrière-plan
+async def process_submission_with_ai(submission_id: str):
+    """Traiter une soumission avec l'IA en arrière-plan"""
+    start_time = datetime.now()
+    
+    async with await AsyncConnection.connect(DATABASE_URL) as conn:
+        try:
+            # Récupérer les infos de la soumission
+            query = """
+            SELECT student_name, student_email, project_title, file_url, professor_id
+            FROM submissions
+            WHERE id = %s
+            """
+            cursor = await conn.execute(query, (submission_id,))
+            submission = await cursor.fetchone()
+            
+            if not submission:
+                print(f"Soumission {submission_id} non trouvée")
+                return
+            
+            student_name, student_email, project_title, file_url, professor_id = submission
+            
+            # Mettre à jour le statut
+            await conn.execute(
+                "UPDATE submissions SET status = 'processing' WHERE id = %s",
+                (submission_id,)
+            )
+            await conn.commit()
+            
+            # Extraire le texte du document
+            text = await extract_text_from_file(file_url)
+            
+            # Analyser avec OpenAI
+            analysis = await analyze_business_plan(text, student_name, project_title)
+            
+            # Calculer le temps de traitement
+            processing_time = int((datetime.now() - start_time).total_seconds())
+            
+            # Générer le rapport formaté
+            report_html = generate_formatted_report(analysis, student_name, project_title, processing_time)
+            
+            # Sauvegarder l'analyse
+            await conn.execute(
+                """
+                INSERT INTO analyses (
+                    submission_id, 
+                    report_content, 
+                    score_global,
+                    scores_details,
+                    processing_time_seconds, 
+                    ai_model_used
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    submission_id, 
+                    report_html,
+                    analysis.get('score_global', 0),
+                    json.dumps(analysis.get('scores', {})),
+                    processing_time, 
+                    "gpt-3.5-turbo"
+                )
+            )
+            
+            # Mettre à jour la soumission avec le score
+            await conn.execute(
+                """
+                UPDATE submissions 
+                SET status = 'completed', score = %s 
+                WHERE id = %s
+                """,
+                (analysis.get('score_global', 0), submission_id)
+            )
+            
+            await conn.commit()
+            print(f"✅ Analyse terminée pour {submission_id} - Score: {analysis.get('score_global')}/100")
+            
+        except Exception as e:
+            print(f"❌ Erreur analyse pour {submission_id}: {str(e)}")
+            # En cas d'erreur, marquer comme échoué
+            await conn.execute(
+                "UPDATE submissions SET status = 'failed' WHERE id = %s",
+                (submission_id,)
+            )
+            await conn.commit()
 
 # 🌟 Routes API
 
 @app.get("/")
 async def root():
     return {
-        "message": "🚀 API Plans d'Affaires - Version 2.0 avec IA",
+        "message": "🚀 API Plans d'Affaires avec IA - Version 2.0",
         "status": "✅ Opérationnelle",
-        "ai_features": "🤖 GPT-4 intégré",
+        "ai_enabled": True,
         "pages": {
             "student": "/student",
             "professor": "/professor"
@@ -304,18 +210,20 @@ async def root():
             "login": "/auth/login",
             "submissions": "/submissions",
             "dashboard": "/professor/dashboard",
-            "professors": "/professors",
-            "ai_analysis": "/submissions/{id}/analyze"
+            "professors": "/professors"
         }
     }
 
 @app.get("/health")
 async def health_check():
     """Check de santé de l'API"""
-    return {"status": "healthy", "timestamp": datetime.utcnow(), "ai_ready": "GPT-4"}
-@app.get("/test-ai.html")
-async def serve_test_ai():
-    return FileResponse("test-ai.html")
+    openai_configured = bool(os.getenv("OPENAI_API_KEY"))
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow(),
+        "openai_configured": openai_configured
+    }
+
 # 🌐 Routes pour servir les pages HTML
 @app.get("/student")
 async def student_page():
@@ -333,314 +241,338 @@ async def professor_page():
     else:
         raise HTTPException(status_code=404, detail="Page professeur non trouvée")
 
-# 📊 Professeurs disponibles
-@app.get("/professors")
-async def get_professors():
-    """Liste des professeurs pour le dropdown frontend"""
-    conn = await get_db_connection()
-    try:
-        query = "SELECT id, name, course FROM professors ORDER BY name"
-        cursor = await conn.execute(query)
-        professors = await cursor.fetchall()
-        
-        professors_list = []
-        for p in professors:
-            professors_list.append({
-                'id': str(p[0]),
-                'name': p[1],
-                'course': p[2]
-            })
-        
-        return professors_list
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur DB: {str(e)}")
-    finally:
-        await conn.close()
-
 # 🔐 Authentification
 @app.post("/auth/login")
-async def login_professor(professor_data: ProfessorLogin):
+async def login_professor(
+    professor_data: ProfessorLogin,
+    conn: AsyncConnection = Depends(get_db_connection)
+):
     """Login professeur"""
-    conn = await get_db_connection()
-    try:
-        query = """
-        SELECT id, email, password_hash, name, course 
-        FROM professors 
-        WHERE email = %s
-        """
-        cursor = await conn.execute(query, (professor_data.email,))
-        professor = await cursor.fetchone()
-        
-        if not professor:
-            raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-        
-        professor_dict = {
-            'id': professor[0],
-            'email': professor[1], 
-            'password_hash': professor[2],
-            'name': professor[3],
-            'course': professor[4]
+    # Vérifier le professeur
+    query = """
+    SELECT id, email, password_hash, name, course 
+    FROM professors 
+    WHERE email = %s
+    """
+    cursor = await conn.execute(query, (professor_data.email,))
+    professor = await cursor.fetchone()
+    
+    if not professor:
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+    
+    # Convertir en dict pour faciliter l'accès
+    professor_dict = {
+        'id': professor[0],
+        'email': professor[1], 
+        'password_hash': professor[2],
+        'name': professor[3],
+        'course': professor[4]
+    }
+    
+    # Vérifier le mot de passe
+    password_hash = hash_password(professor_data.password)
+    if professor_dict['password_hash'] != password_hash:
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+    
+    # Créer token JWT
+    access_token = create_access_token(data={"sub": str(professor_dict['id'])})
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "professor": {
+            "id": str(professor_dict['id']),
+            "email": professor_dict['email'],
+            "name": professor_dict['name'],
+            "course": professor_dict['course']
         }
-        
-        password_hash = hash_password(professor_data.password)
-        if professor_dict['password_hash'] != password_hash:
-            raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-        
-        access_token = create_access_token(data={"sub": str(professor_dict['id'])})
-        
-        return {
-            "access_token": access_token,
-            "token_type": "bearer",
-            "professor": {
-                "id": str(professor_dict['id']),
-                "email": professor_dict['email'],
-                "name": professor_dict['name'],
-                "course": professor_dict['course']
-            }
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur login: {str(e)}")
-    finally:
-        await conn.close()
+    }
 
-# 📋 Soumissions
+# 📋 Soumissions avec analyse IA automatique
 @app.post("/submissions", response_model=SubmissionResponse)
 async def create_submission(
+    background_tasks: BackgroundTasks,
     student_name: str = Form(...),
     student_email: str = Form(...),
     professor_id: str = Form(...),
     project_title: str = Form(...),
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+    conn: AsyncConnection = Depends(get_db_connection)
 ):
-    """Créer une nouvelle soumission"""
+    """Créer une nouvelle soumission et lancer l'analyse IA"""
     
+    # Valider le fichier
     if not file.filename.endswith(('.pdf', '.doc', '.docx')):
-        raise HTTPException(status_code=400, detail="Format de fichier non supporté")
+        raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF ou DOCX.")
     
-    if file.size and file.size > 15 * 1024 * 1024:  # 15MB
-        raise HTTPException(status_code=400, detail="Fichier trop volumineux")
+    if file.size > 15 * 1024 * 1024:  # 15MB
+        raise HTTPException(status_code=400, detail="Fichier trop volumineux (max 15MB)")
     
+    # Générer nom de fichier unique
     file_extension = file.filename.split('.')[-1]
     unique_filename = f"{uuid.uuid4()}.{file_extension}"
     
+    # Sauvegarder le fichier
     upload_dir = "uploads"
     os.makedirs(upload_dir, exist_ok=True)
     file_path = f"{upload_dir}/{unique_filename}"
     
-    try:
-        async with aiofiles.open(file_path, 'wb') as f:
-            content = await file.read()
-            await f.write(content)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur sauvegarde fichier: {str(e)}")
+    async with aiofiles.open(file_path, 'wb') as f:
+        content = await file.read()
+        await f.write(content)
     
-    conn = await get_db_connection()
-    try:
-        # Convertir email professeur → UUID
-        prof_query = "SELECT id FROM professors WHERE email = %s"
-        prof_cursor = await conn.execute(prof_query, (professor_id,))
-        professor = await prof_cursor.fetchone()
-        
-        if not professor:
-            raise HTTPException(status_code=400, detail=f"Professeur non trouvé: {professor_id}")
-        
-        actual_professor_id = str(professor[0])
-        
-        query = """
-        INSERT INTO submissions (student_name, student_email, professor_id, project_title, file_url, file_name, file_size)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        RETURNING id, student_name, student_email, project_title, status, submission_date, file_name
-        """
-        cursor = await conn.execute(
-            query, 
-            (student_name, student_email, actual_professor_id, project_title, file_path, file.filename, len(content))
-        )
-        submission = await cursor.fetchone()
-        
-        if not submission:
-            raise HTTPException(status_code=500, detail="Erreur création soumission")
-        
-        submission_dict = {
-            'id': str(submission[0]),
-            'student_name': submission[1],
-            'student_email': submission[2],
-            'project_title': submission[3],
-            'status': submission[4],
-            'submission_date': submission[5],
-            'file_name': submission[6]
-        }
-        
-        return SubmissionResponse(**submission_dict)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur DB soumission: {str(e)}")
-    finally:
-        await conn.close()
+    # Insérer en base
+    query = """
+    INSERT INTO submissions (student_name, student_email, professor_id, project_title, file_url, file_name, file_size, status)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    RETURNING id, student_name, student_email, project_title, status, submission_date, file_name
+    """
+    cursor = await conn.execute(
+        query, 
+        (student_name, student_email, professor_id, project_title, file_path, file.filename, len(content), 'pending')
+    )
+    submission = await cursor.fetchone()
+    await conn.commit()
+    
+    # Convertir en dict
+    submission_dict = {
+        'id': str(submission[0]),
+        'student_name': submission[1],
+        'student_email': submission[2],
+        'project_title': submission[3],
+        'status': submission[4],
+        'submission_date': submission[5],
+        'file_name': submission[6]
+    }
+    
+    # Lancer l'analyse IA en arrière-plan
+    background_tasks.add_task(process_submission_with_ai, submission_dict['id'])
+    
+    return SubmissionResponse(**submission_dict)
 
-# 📊 Dashboard professeur
 @app.get("/professor/dashboard")
-async def get_professor_dashboard(professor_id: str = Depends(get_current_professor)):
+async def get_professor_dashboard(
+    professor_id: str = Depends(get_current_professor),
+    conn: AsyncConnection = Depends(get_db_connection)
+):
     """Dashboard professeur avec toutes ses soumissions"""
-    conn = await get_db_connection()
-    try:
-        query = """
-        SELECT 
-            s.id,
-            s.student_name,
-            s.student_email,
-            s.project_title,
-            s.status,
-            s.submission_date,
-            s.file_name,
-            a.generated_at as analysis_completed_at,
-            a.processing_time_seconds
-        FROM submissions s
-        LEFT JOIN analyses a ON s.id = a.submission_id
-        WHERE s.professor_id = %s
-        ORDER BY s.submission_date DESC
-        """
-        cursor = await conn.execute(query, (professor_id,))
-        submissions = await cursor.fetchall()
-        
-        submissions_list = []
-        for s in submissions:
-            submissions_list.append({
-                'id': str(s[0]),
-                'student_name': s[1],
-                'student_email': s[2], 
-                'project_title': s[3],
-                'status': s[4],
-                'submission_date': s[5],
-                'file_name': s[6],
-                'analysis_completed_at': s[7],
-                'processing_time_seconds': s[8]
-            })
-        
-        total = len(submissions_list)
-        completed = len([s for s in submissions_list if s['analysis_completed_at']])
-        processing = len([s for s in submissions_list if s['status'] == 'processing'])
-        
-        return {
-            "stats": {
-                "total_submissions": total,
-                "completed_analyses": completed,
-                "processing": processing,
-                "pending": total - completed - processing
-            },
-            "submissions": submissions_list
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur dashboard: {str(e)}")
-    finally:
-        await conn.close()
+    query = """
+    SELECT 
+        s.id,
+        s.student_name,
+        s.student_email,
+        s.project_title,
+        s.status,
+        s.submission_date,
+        s.file_name,
+        s.score,
+        a.generated_at as analysis_completed_at,
+        a.processing_time_seconds
+    FROM submissions s
+    LEFT JOIN analyses a ON s.id = a.submission_id
+    WHERE s.professor_id = %s
+    ORDER BY s.submission_date DESC
+    """
+    cursor = await conn.execute(query, (professor_id,))
+    submissions = await cursor.fetchall()
+    
+    # Convertir en liste de dicts
+    submissions_list = []
+    for s in submissions:
+        submissions_list.append({
+            'id': str(s[0]),
+            'student_name': s[1],
+            'student_email': s[2], 
+            'project_title': s[3],
+            'status': s[4],
+            'submission_date': s[5].isoformat() if s[5] else None,
+            'file_name': s[6],
+            'score': s[7],
+            'analysis_completed_at': s[8].isoformat() if s[8] else None,
+            'processing_time_seconds': s[9]
+        })
+    
+    # Stats
+    total = len(submissions_list)
+    completed = len([s for s in submissions_list if s['status'] == 'completed'])
+    processing = len([s for s in submissions_list if s['status'] == 'processing'])
+    failed = len([s for s in submissions_list if s['status'] == 'failed'])
+    
+    # Calculer la moyenne des scores
+    scores = [s['score'] for s in submissions_list if s['score'] is not None]
+    average_score = round(sum(scores) / len(scores)) if scores else 0
+    
+    return {
+        "stats": {
+            "total_submissions": total,
+            "completed_analyses": completed,
+            "processing": processing,
+            "failed": failed,
+            "average_score": average_score
+        },
+        "submissions": submissions_list
+    }
 
-# 📋 Analyse individuelle
 @app.get("/submissions/{submission_id}/analysis")
-async def get_analysis(submission_id: str, professor_id: str = Depends(get_current_professor)):
+async def get_analysis(
+    submission_id: str,
+    professor_id: str = Depends(get_current_professor),
+    conn: AsyncConnection = Depends(get_db_connection)
+):
     """Récupérer l'analyse d'une soumission"""
-    conn = await get_db_connection()
-    try:
-        query_check = """
-        SELECT id FROM submissions 
-        WHERE id = %s AND professor_id = %s
-        """
-        cursor_check = await conn.execute(query_check, (submission_id, professor_id))
-        submission = await cursor_check.fetchone()
-        if not submission:
-            raise HTTPException(status_code=404, detail="Soumission non trouvée")
-        
-        query_analysis = """
-        SELECT id, submission_id, report_content, generated_at, processing_time_seconds
-        FROM analyses 
-        WHERE submission_id = %s
-        """
-        cursor_analysis = await conn.execute(query_analysis, (submission_id,))
-        analysis = await cursor_analysis.fetchone()
-        if not analysis:
-            raise HTTPException(status_code=404, detail="Analyse non trouvée")
-        
-        analysis_dict = {
-            'id': str(analysis[0]),
-            'submission_id': str(analysis[1]),
-            'report_content': analysis[2],
-            'generated_at': analysis[3],
-            'processing_time_seconds': analysis[4]
-        }
-        
-        return AnalysisResponse(**analysis_dict)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur analyse: {str(e)}")
-    finally:
-        await conn.close()
+    # Vérifier que la soumission appartient au professeur
+    query_check = """
+    SELECT id FROM submissions 
+    WHERE id = %s AND professor_id = %s
+    """
+    cursor_check = await conn.execute(query_check, (submission_id, professor_id))
+    submission = await cursor_check.fetchone()
+    if not submission:
+        raise HTTPException(status_code=404, detail="Soumission non trouvée")
+    
+    # Récupérer l'analyse
+    query_analysis = """
+    SELECT id, submission_id, report_content, score_global, generated_at, processing_time_seconds
+    FROM analyses 
+    WHERE submission_id = %s
+    """
+    cursor_analysis = await conn.execute(query_analysis, (submission_id,))
+    analysis = await cursor_analysis.fetchone()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analyse non disponible. Elle peut être en cours de traitement.")
+    
+    # Convertir en dict
+    analysis_dict = {
+        'id': str(analysis[0]),
+        'submission_id': str(analysis[1]),
+        'report_content': analysis[2],
+        'score_global': analysis[3],
+        'generated_at': analysis[4],
+        'processing_time_seconds': analysis[5]
+    }
+    
+    return AnalysisResponse(**analysis_dict)
 
-# 🤖 ANALYSE IA avec OpenAI seulement
-@app.post("/submissions/{submission_id}/analyze")
-async def trigger_ai_analysis(submission_id: str):
-    """Déclencher l'analyse IA avec GPT-4"""
-    conn = await get_db_connection()
-    try:
-        query = """
-        SELECT s.student_name, s.student_email, s.project_title, s.file_url
-        FROM submissions s 
-        WHERE s.id = %s
-        """
-        cursor = await conn.execute(query, (submission_id,))
-        submission = await cursor.fetchone()
-        
-        if not submission:
-            raise HTTPException(status_code=404, detail="Soumission non trouvée")
-        
-        await conn.execute(
-            "UPDATE submissions SET status = 'processing' WHERE id = %s",
-            (submission_id,)
-        )
-        
-        student_info = {
-            'name': submission[0],
-            'email': submission[1], 
-            'project_title': submission[2],
-            'file_path': submission[3]
-        }
-        
-        document_text = await extract_text_from_file(student_info['file_path'])
-        
-        chatgpt_analysis = await analyze_with_chatgpt_complete(document_text, student_info)
-        
-        final_report = await generate_teacher_report_openai(chatgpt_analysis, student_info)
-        
-        await conn.execute(
-            """
-            INSERT INTO analyses (submission_id, report_content, processing_time_seconds, ai_model_used)
-            VALUES (%s, %s, %s, %s)
-            """,
-            (submission_id, final_report, 45, "gpt-4")
-        )
-        
-        await conn.execute(
-            "UPDATE submissions SET status = 'completed' WHERE id = %s",
-            (submission_id,)
-        )
-        
-        return {
-            "message": "🤖 Analyse IA terminée avec GPT-4", 
-            "submission_id": submission_id,
-            "ai_model": "GPT-4",
-            "cost_estimate": "$0.04",
-            "note": "Claude sera ajouté prochainement pour analyse double",
-            "preview": chatgpt_analysis[:200] + "..."
-        }
-        
-    except Exception as e:
-        await conn.execute(
-            "UPDATE submissions SET status = 'pending' WHERE id = %s",
-            (submission_id,)
-        )
-        raise HTTPException(status_code=500, detail=f"Erreur analyse IA: {str(e)}")
-    finally:
-        await conn.close()
+# 📊 Professeurs disponibles (pour frontend)
+@app.get("/professors")
+async def get_professors(conn: AsyncConnection = Depends(get_db_connection)):
+    """Liste des professeurs pour le dropdown frontend"""
+    query = "SELECT id, name, course FROM professors ORDER BY name"
+    cursor = await conn.execute(query)
+    professors = await cursor.fetchall()
+    
+    professors_list = []
+    for p in professors:
+        professors_list.append({
+            'id': str(p[0]),
+            'name': p[1],
+            'course': p[2]
+        })
+    
+    return professors_list
+
+# 🔄 Route pour relancer une analyse (en cas d'échec)
+@app.post("/submissions/{submission_id}/retry-analysis")
+async def retry_analysis(
+    submission_id: str,
+    background_tasks: BackgroundTasks,
+    professor_id: str = Depends(get_current_professor),
+    conn: AsyncConnection = Depends(get_db_connection)
+):
+    """Relancer l'analyse IA d'une soumission échouée"""
+    # Vérifier que la soumission appartient au professeur et est en échec
+    query = """
+    SELECT id, status FROM submissions 
+    WHERE id = %s AND professor_id = %s
+    """
+    cursor = await conn.execute(query, (submission_id, professor_id))
+    submission = await cursor.fetchone()
+    
+    if not submission:
+        raise HTTPException(status_code=404, detail="Soumission non trouvée")
+    
+    if submission[1] == 'completed':
+        raise HTTPException(status_code=400, detail="Cette soumission a déjà été analysée avec succès")
+    
+    if submission[1] == 'processing':
+        raise HTTPException(status_code=400, detail="Une analyse est déjà en cours pour cette soumission")
+    
+    # Supprimer l'ancienne analyse si elle existe
+    await conn.execute("DELETE FROM analyses WHERE submission_id = %s", (submission_id,))
+    
+    # Réinitialiser le statut
+    await conn.execute(
+        "UPDATE submissions SET status = 'pending', score = NULL WHERE id = %s",
+        (submission_id,)
+    )
+    await conn.commit()
+    
+    # Relancer l'analyse
+    background_tasks.add_task(process_submission_with_ai, submission_id)
+    
+    return {"message": "Analyse relancée avec succès", "submission_id": submission_id}
+
+# 📊 Route pour obtenir les statistiques globales
+@app.get("/stats/global")
+async def get_global_stats(
+    professor_id: str = Depends(get_current_professor),
+    conn: AsyncConnection = Depends(get_db_connection)
+):
+    """Obtenir des statistiques globales pour le professeur"""
+    # Statistiques par mois
+    query_monthly = """
+    SELECT 
+        DATE_TRUNC('month', submission_date) as month,
+        COUNT(*) as submissions,
+        AVG(score) as avg_score
+    FROM submissions
+    WHERE professor_id = %s AND submission_date > NOW() - INTERVAL '6 months'
+    GROUP BY month
+    ORDER BY month DESC
+    """
+    cursor_monthly = await conn.execute(query_monthly, (professor_id,))
+    monthly_stats = await cursor_monthly.fetchall()
+    
+    # Top projets
+    query_top = """
+    SELECT 
+        student_name,
+        project_title,
+        score
+    FROM submissions
+    WHERE professor_id = %s AND score IS NOT NULL
+    ORDER BY score DESC
+    LIMIT 5
+    """
+    cursor_top = await conn.execute(query_top, (professor_id,))
+    top_projects = await cursor_top.fetchall()
+    
+    return {
+        "monthly_stats": [
+            {
+                "month": stat[0].isoformat() if stat[0] else None,
+                "submissions": stat[1],
+                "avg_score": round(stat[2]) if stat[2] else 0
+            }
+            for stat in monthly_stats
+        ],
+        "top_projects": [
+            {
+                "student_name": proj[0],
+                "project_title": proj[1],
+                "score": proj[2]
+            }
+            for proj in top_projects
+        ]
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    
+    # Vérifier la configuration
+    if not os.getenv("OPENAI_API_KEY"):
+        print("⚠️  ATTENTION: OPENAI_API_KEY n'est pas configurée!")
+        print("   L'analyse IA ne fonctionnera pas sans cette clé.")
+        print("   Configurez-la dans vos variables d'environnement.")
+    
+    uvicorn.run(app, host="0.0.0.0", port=8000)
