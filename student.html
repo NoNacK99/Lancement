@@ -237,6 +237,7 @@
             align-items: center;
             justify-content: center;
             z-index: 1000;
+            padding: 20px;
         }
         
         .processing-card {
@@ -333,6 +334,22 @@
             margin: 5px 0;
         }
         
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
         @media (max-width: 768px) {
             .container {
                 padding: 10px;
@@ -373,13 +390,7 @@
                 <div class="form-group">
                     <label for="professor">Professeur responsable :</label>
                     <select id="professor" name="professor" required>
-                        <option value="">Sélectionnez votre professeur</option>
-                        <option value="prof1">Dr. Marie Dubois</option>
-                        <option value="prof2">M. Jean Martin</option>
-                        <option value="prof3">Mme. Sophie Leroy</option>
-                        <option value="prof4">M. Pierre Moreau</option>
-                        <option value="prof5">Mme. Claire Bernard</option>
-                        <option value="prof6">M. Thomas Petit</option>
+                        <option value="">Chargement des professeurs...</option>
                     </select>
                 </div>
                 
@@ -439,6 +450,32 @@
 
     <script>
         let uploadedFiles = [];
+        let professorsData = {};
+        
+        // Charger les professeurs au démarrage
+        async function loadProfessors() {
+            try {
+                const response = await fetch('/professors');
+                const professors = await response.json();
+                
+                const select = document.getElementById('professor');
+                select.innerHTML = '<option value="">Sélectionnez votre professeur</option>';
+                
+                professors.forEach(prof => {
+                    const option = document.createElement('option');
+                    option.value = prof.id; // Utiliser l'ID UUID !
+                    option.textContent = prof.name;
+                    select.appendChild(option);
+                    
+                    // Stocker les données pour affichage ultérieur
+                    professorsData[prof.id] = prof;
+                });
+            } catch (error) {
+                console.error('Erreur chargement professeurs:', error);
+                const select = document.getElementById('professor');
+                select.innerHTML = '<option value="">Erreur de chargement - Rechargez la page</option>';
+            }
+        }
         
         // Gestion de l'upload de fichiers
         const fileUploadZone = document.getElementById('fileUploadZone');
@@ -542,151 +579,109 @@
             renderFileList();
         }
         
-     // Gestion du formulaire - VERSION CONNECTÉE À L'API
-document.getElementById('businessPlanForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    
-    if (uploadedFiles.length === 0) {
-        alert('Veuillez sélectionner votre plan d\'affaires avant de soumettre.');
-        return;
-    }
-    
-    const formData = new FormData();
-    const submitBtn = document.getElementById('submitBtn');
-    const processingOverlay = document.getElementById('processingOverlay');
-    const successPanel = document.getElementById('successPanel');
-    
-    // Récupérer les données du formulaire
-    const studentName = document.getElementById('studentName').value;
-    const studentEmail = document.getElementById('studentEmail').value;
-    const professorSelect = document.getElementById('professor').value;
-    const projectTitle = document.getElementById('projectTitle').value;
-    
-    // Validation
-    if (!studentName || !studentEmail || !professorSelect || !projectTitle) {
-        alert('Veuillez remplir tous les champs obligatoires.');
-        return;
-    }
-    
-    // Mapper les professeurs (codes vers IDs réels)
-    const professorMapping = {
-        'prof1': 'marie.dubois@university.ca',
-        'prof2': 'jean.martin@university.ca', 
-        'prof3': 'sophie.leroy@university.ca',
-        'prof4': 'pierre.moreau@university.ca',
-        'prof5': 'claire.bernard@university.ca',
-        'prof6': 'thomas.petit@university.ca'
-    };
-    
-    const professorEmail = professorMapping[professorSelect];
-    if (!professorEmail) {
-        alert('Professeur non valide sélectionné.');
-        return;
-    }
-    
-    // Préparer FormData pour l'API
-    formData.append('student_name', studentName);
-    formData.append('student_email', studentEmail);
-    formData.append('professor_id', professorEmail); // On utilise l'email comme ID temporairement
-    formData.append('project_title', projectTitle);
-    formData.append('file', uploadedFiles[0]); // Le fichier
-    
-    // Démarrer le traitement
-    submitBtn.disabled = true;
-    processingOverlay.style.display = 'flex';
-    
-    try {
-        // Simuler le processus de soumission visuellement
-        await simulateSubmissionProcess();
-        
-        // VRAIE SOUMISSION À L'API
-        console.log('🚀 Envoi à l\'API...');
-        
-        const response = await fetch('/submissions', {
-            method: 'POST',
-            body: formData
+        // Gestion du formulaire
+        document.getElementById('businessPlanForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            if (uploadedFiles.length === 0) {
+                alert('Veuillez sélectionner votre plan d\'affaires avant de soumettre.');
+                return;
+            }
+            
+            const professorId = document.getElementById('professor').value;
+            if (!professorId) {
+                alert('Veuillez sélectionner un professeur.');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('student_name', document.getElementById('studentName').value);
+            formData.append('student_email', document.getElementById('studentEmail').value);
+            formData.append('professor_id', professorId); // Envoyer l'ID UUID
+            formData.append('project_title', document.getElementById('projectTitle').value);
+            formData.append('file', uploadedFiles[0]);
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const processingOverlay = document.getElementById('processingOverlay');
+            const successPanel = document.getElementById('successPanel');
+            
+            // Démarrer le traitement
+            submitBtn.disabled = true;
+            processingOverlay.style.display = 'flex';
+            
+            try {
+                // Envoyer la soumission
+                const response = await fetch('/submissions', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new Error(error || 'Erreur lors de la soumission');
+                }
+                
+                // Simuler le processus
+                await simulateSubmissionProcess();
+                
+                // Afficher le succès avec les bonnes infos
+                displaySuccessMessage();
+                
+                // Masquer l'overlay et afficher le succès
+                processingOverlay.style.display = 'none';
+                successPanel.style.display = 'block';
+                
+                // Scroll vers le message de succès
+                successPanel.scrollIntoView({ behavior: 'smooth' });
+                
+                // Réinitialiser le formulaire
+                document.getElementById('businessPlanForm').reset();
+                uploadedFiles = [];
+                renderFileList();
+                loadProfessors(); // Recharger les professeurs
+                
+            } catch (error) {
+                processingOverlay.style.display = 'none';
+                submitBtn.disabled = false;
+                alert('Erreur lors de la soumission : ' + error.message);
+            }
         });
         
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || `Erreur HTTP: ${response.status}`);
+        async function simulateSubmissionProcess() {
+            const steps = [
+                { progress: 10, text: "📤 Téléchargement du document..." },
+                { progress: 30, text: "🔍 Validation du fichier..." },
+                { progress: 50, text: "📋 Traitement des informations..." },
+                { progress: 70, text: "🤖 Lancement de l'analyse IA..." },
+                { progress: 90, text: "✅ Finalisation..." },
+                { progress: 100, text: "🎉 Soumission réussie !" }
+            ];
+            
+            for (const step of steps) {
+                await new Promise(resolve => setTimeout(resolve, 800));
+                document.getElementById('progressFill').style.width = step.progress + '%';
+                document.getElementById('progressText').textContent = step.text;
+            }
         }
         
-        const result = await response.json();
-        console.log('✅ Succès:', result);
+        function displaySuccessMessage() {
+            const studentName = document.getElementById('studentName').value;
+            const projectTitle = document.getElementById('projectTitle').value;
+            const professorId = document.getElementById('professor').value;
+            const professor = professorsData[professorId];
+            
+            document.getElementById('professorName').textContent = professor ? professor.name : 'Professeur sélectionné';
+            document.getElementById('studentInfo').innerHTML = `
+                <strong>Étudiant :</strong> ${studentName}<br>
+                <strong>Projet :</strong> ${projectTitle}
+            `;
+        }
         
-        // Afficher le succès avec les vraies données
-        displaySuccessMessage(result);
-        
-        // Masquer l'overlay et afficher le succès
-        processingOverlay.style.display = 'none';
-        successPanel.style.display = 'block';
-        
-        // Scroll vers le message de succès
-        successPanel.scrollIntoView({ behavior: 'smooth' });
-        
-        // Réinitialiser le formulaire
-        setTimeout(() => {
-            document.getElementById('businessPlanForm').reset();
-            uploadedFiles = [];
-            renderFileList();
-            submitBtn.disabled = false;
-        }, 3000);
-        
-    } catch (error) {
-        console.error('❌ Erreur:', error);
-        
-        // Masquer l'overlay
-        processingOverlay.style.display = 'none';
-        
-        // Afficher l'erreur
-        alert(`❌ Erreur lors de la soumission:\n\n${error.message}\n\nVérifiez votre connexion et réessayez.`);
-        
-        // Réactiver le bouton
-        submitBtn.disabled = false;
-    }
-});
-async function simulateSubmissionProcess() {
-    const steps = [
-        { progress: 10, text: "📤 Téléchargement du document..." },
-        { progress: 30, text: "🔍 Validation du fichier..." },
-        { progress: 50, text: "📋 Traitement des informations..." },
-        { progress: 70, text: "📧 Transmission au professeur..." },
-        { progress: 90, text: "✅ Finalisation..." },
-        { progress: 100, text: "🎉 Soumission réussie !" }
-    ];
-    
-    for (const step of steps) {
-        await new Promise(resolve => setTimeout(resolve, 800));
-        document.getElementById('progressFill').style.width = step.progress + '%';
-        document.getElementById('progressText').textContent = step.text;
-    }
-}
-// Fonction pour afficher le succès avec les vraies données
-function displaySuccessMessage(submissionData) {
-    const professors = {
-        'prof1': 'Dr. Marie Dubois',
-        'prof2': 'M. Jean Martin',
-        'prof3': 'Mme. Sophie Leroy',
-        'prof4': 'M. Pierre Moreau',
-        'prof5': 'Mme. Claire Bernard',
-        'prof6': 'M. Thomas Petit'
-    };
-    
-    const professorCode = document.getElementById('professor').value;
-    const professorName = professors[professorCode] || 'Professeur sélectionné';
-    
-    document.getElementById('professorName').textContent = professorName;
-    document.getElementById('studentInfo').innerHTML = `
-        <strong>Étudiant :</strong> ${submissionData.student_name}<br>
-        <strong>Projet :</strong> ${submissionData.project_title}<br>
-        <strong>ID Soumission :</strong> ${submissionData.id}<br>
-        <strong>Statut :</strong> ${submissionData.status}
-    `;
-}
-        
-        // Animation d'entrée
+        // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
+            loadProfessors();
+            
+            // Animation d'entrée
             const container = document.querySelector('.container');
             container.style.opacity = '0';
             container.style.transform = 'translateY(20px)';
