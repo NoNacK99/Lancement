@@ -251,41 +251,44 @@ async def login_professor(
     professor_data: ProfessorLogin,
     conn: AsyncConnection = Depends(get_db_connection)
 ):
-    """Login professeur"""
-    # Vérifier le professeur
+    """Gère l'authentification d'un professeur et retourne un token JWT."""
+    
+    # 1. Récupérer le professeur par email depuis la base de données
     query = """
     SELECT id, email, password_hash, name, course
     FROM professors
     WHERE email = %s
     """
     cursor = await conn.execute(query, (professor_data.email,))
-    professor = await cursor.fetchone()
+    professor_db_record = await cursor.fetchone()
     
-    if not professor:
+    # 2. Vérifier si le professeur existe ET si le mot de passe est correct
+    # Cette condition unique est plus sécurisée car elle ne révèle pas si
+    # c'est l'email ou le mot de passe qui est incorrect (timing attack).
+    if not professor_db_record:
+        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+
+    # Conversion du tuple de la base de données en dictionnaire pour une lecture facile
+    professor_dict = {
+        'id': str(professor_db_record[0]),
+        'email': professor_db_record[1], 
+        'password_hash': professor_db_record[2],
+        'name': professor_db_record[3],
+        'course': professor_db_record[4]
+    }
+
+    # Vérification du mot de passe avec passlib
+    if not pwd_context.verify(professor_data.password, professor_dict['password_hash']):
         raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
     
-    # Convertir en dict pour faciliter l'accès
-    professor_dict = {
-        'id': professor[0],
-        'email': professor[1], 
-        'password_hash': professor[2],
-        'name': professor[3],
-        'course': professor[4]
-    }
-    
-  # LE NOUVEAU CODE (CORRECT)
-# Vérifier le mot de passe
-if not pwd_context.verify(professor_data.password, professor_dict['password_hash']):
-    raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-    
-    # Créer token JWT
-    access_token = create_access_token(data={"sub": str(professor_dict['id'])})
+    # 3. Si tout est correct, créer et retourner le token JWT
+    access_token = create_access_token(data={"sub": professor_dict['id']})
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "professor": {
-            "id": str(professor_dict['id']),
+            "id": professor_dict['id'],
             "email": professor_dict['email'],
             "name": professor_dict['name'],
             "course": professor_dict['course']
