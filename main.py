@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 import aiofiles
 import uuid
 import json
+from passlib.context import CryptContext
 
 # Import du module d'analyse IA
 from ai_analyzer import extract_text_from_file, analyze_business_plan, generate_formatted_report
