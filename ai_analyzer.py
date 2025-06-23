@@ -10,9 +10,15 @@ import docx
 from openai import AsyncOpenAI
 
 # Configuration OpenAI
-client = AsyncOpenAI(
-    api_key=os.getenv("OPENAI_API_KEY")
-)
+try:
+    client = AsyncOpenAI(
+        api_key=os.getenv("OPENAI_API_KEY")
+    )
+except Exception as e:
+    print(f"⚠️ Erreur initialisation OpenAI: {e}")
+    # Fallback si erreur
+    import openai
+    openai.api_key = os.getenv("OPENAI_API_KEY")
 
 async def extract_text_from_pdf(file_path: str) -> str:
     """Extraire le texte d'un PDF"""
