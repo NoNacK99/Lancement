@@ -23,6 +23,7 @@ from ai_analyzer import extract_text_from_file, analyze_business_plan, generate_
 
 # 🔧 Configuration
 app = FastAPI(
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
     title="Plans d'Affaires API",
     description="API pour soumission et analyse de plans d'affaires avec IA",
     version="2.0.0"
