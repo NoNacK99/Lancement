@@ -269,10 +269,10 @@ async def login_professor(
         'course': professor[4]
     }
     
-    # Vérifier le mot de passe
-    password_hash = hash_password(professor_data.password)
-    if professor_dict['password_hash'] != password_hash:
-        raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
+  # LE NOUVEAU CODE (CORRECT)
+# Vérifier le mot de passe
+if not pwd_context.verify(professor_data.password, professor_dict['password_hash']):
+    raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
     
     # Créer token JWT
     access_token = create_access_token(data={"sub": str(professor_dict['id'])})
