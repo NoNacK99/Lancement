@@ -250,8 +250,8 @@ async def login_professor(
     """Login professeur"""
     # Vérifier le professeur
     query = """
-    SELECT id, email, name, course 
-    FROM professors 
+    SELECT id, email, password_hash, name, course
+    FROM professors
     WHERE email = %s
     """
     cursor = await conn.execute(query, (professor_data.email,))
