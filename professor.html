@@ -5,235 +5,401 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard Professeur - Évaluation Plans d'Affaires</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; color: #333; }
+        .login-container { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .login-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 50px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); max-width: 450px; width: 100%; }
+        .login-header { text-align: center; margin-bottom: 40px; }
+        .login-header h1 { font-size: 2.5em; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 10px; font-weight: 800; }
+        .login-header p { color: #666; font-size: 1.1em; }
+        .dashboard-container { display: none; padding: 20px; max-width: 1400px; margin: 0 auto; }
+        .dashboard-header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 30px; margin-bottom: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); display: flex; justify-content: space-between; align-items: center; }
+        .professor-info h2 { font-size: 2em; color: #333; margin-bottom: 5px; font-weight: 700; }
+        .professor-info p { color: #666; font-size: 1.1em; }
+        .logout-btn { background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%); color: white; border: none; padding: 12px 25px; border-radius: 12px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; }
+        .logout-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(255, 71, 87, 0.3); }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; margin-bottom: 30px; }
+        .stat-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 20px; padding: 30px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); text-align: center; transition: all 0.3s ease; }
+        .stat-card:hover { transform: translateY(-5px); box-shadow: 0 25px 70px rgba(0,0,0,0.15); }
+        .stat-icon { font-size: 3em; margin-bottom: 15px; opacity: 0.8; }
+        .stat-number { font-size: 2.5em; font-weight: 800; color: #4facfe; margin-bottom: 10px; }
+        .stat-label { color: #666; font-weight: 600; font-size: 1.1em; }
+        .main-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(20px); border-radius: 24px; padding: 40px; box-shadow: 0 20px 60px rgba(0,0,0,0.1); border: 1px solid rgba(255,255,255,0.2); }
+        .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #f0f0f0; }
+        .panel-title { font-size: 1.8em; font-weight: 700; color: #333; display: flex; align-items: center; gap: 15px; }
+        .controls { display: flex; gap: 15px; align-items: center; }
+        .search-box { padding: 12px 20px; border: 2px solid #e1e5e9; border-radius: 12px; font-size: 1em; width: 250px; transition: all 0.3s ease; }
+        .search-box:focus { outline: none; border-color: #4facfe; box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1); }
+        .filter-select { padding: 12px 15px; border: 2px solid #e1e5e9; border-radius: 12px; font-size: 1em; background: white; cursor: pointer; transition: all 0.3s ease; }
+        .filter-select:focus { outline: none; border-color: #4facfe; }
+        .export-btn { background: linear-gradient(135deg, #4CAF50 0%, #45A049 100%); color: white; border: none; padding: 12px 25px; border-radius: 12px; cursor: pointer; font-weight: 600; transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; }
+        .export-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3); }
+        .students-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .students-table th { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 18px 15px; text-align: left; font-weight: 700; color: #333; border-bottom: 2px solid #dee2e6; font-size: 0.95em; }
+        .students-table td { padding: 18px 15px; border-bottom: 1px solid #e9ecef; transition: all 0.3s ease; }
+        .students-table tr:hover { background: linear-gradient(135deg, #f8faff 0%, #f0f6ff 100%); }
+        .sortable-header { cursor: pointer; transition: all 0.3s ease; position: relative; user-select: none; }
+        .sortable-header:hover { background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%); color: #4facfe; }
+        .status-badge { padding: 6px 14px; border-radius: 20px; font-size: 0.85em; font-weight: 600; text-align: center; min-width: 120px; display: inline-block; }
+        .status-completed { background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c8 100%); color: #2E7D32; border: 1px solid #4CAF50; }
+        .status-processing { background: linear-gradient(135deg, #fff3e0 0%, #ffecb3 100%); color: #F57C00; border: 1px solid #FF9800; }
+        .status-pending { background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%); color: #666; border: 1px solid #bbb; }
+        .action-btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.9em; transition: all 0.3s ease; margin-right: 8px; }
+        .action-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 15px rgba(79, 172, 254, 0.3); }
+        .action-btn.secondary { background: linear-gradient(135deg, #6c757d 0%, #5a6268 100%); }
+        .action-btn.secondary:hover { box-shadow: 0 6px 15px rgba(108, 117, 125, 0.3); }
+        .form-group { margin-bottom: 25px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+        input[type="email"], input[type="password"] { width: 100%; padding: 16px; border: 2px solid #e1e5e9; border-radius: 16px; font-size: 1em; transition: all 0.3s ease; background: rgba(255,255,255,0.8); }
+        input[type="email"]:focus, input[type="password"]:focus { outline: none; border-color: #4facfe; box-shadow: 0 0 0 4px rgba(79, 172, 254, 0.1); background: white; }
+        .login-btn { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border: none; padding: 16px 40px; border-radius: 16px; font-size: 1.1em; font-weight: 700; cursor: pointer; transition: all 0.3s ease; width: 100%; margin-top: 10px; }
+        .login-btn:hover { transform: translateY(-2px); box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4); }
+        .report-modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(10px); display: none; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .report-content { background: white; border-radius: 24px; padding: 40px; max-width: 900px; width: 100%; max-height: 90vh; overflow-y: auto; box-shadow: 0 30px 80px rgba(0,0,0,0.3); }
+        .report-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 2px solid #f0f0f0; }
+        .close-btn { background: #ff4757; color: white; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        .empty-state { text-align: center; padding: 60px 20px; color: #666; }
+        .empty-state-icon { font-size: 4em; margin-bottom: 20px; opacity: 0.5; }
+        .empty-state h3 { font-size: 1.5em; margin-bottom: 10px; color: #333; }
+        .quick-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin: 30px 0; }
+        .quick-stat { background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 20px; border-radius: 16px; text-align: center; border: 1px solid #dee2e6; }
+        .quick-stat-number { font-size: 2em; font-weight: 800; color: #4facfe; margin-bottom: 8px; }
+        .quick-stat-label { color: #666; font-weight: 600; font-size: 0.9em; }
+        @media (max-width: 768px) { .dashboard-header { flex-direction: column; gap: 20px; text-align: center; } .controls { flex-direction: column; width: 100%; } .search-box { width: 100%; } .students-table { font-size: 0.9em; } .students-table th, .students-table td { padding: 12px 8px; } }
+    </style>
+</head>
+<body>
+    <div class="login-container" id="loginContainer">
+        <div class="login-panel">
+            <div class="login-header"><h1>👨‍🏫 Professeur</h1><p>Accès au tableau de bord d'évaluation</p></div>
+            <form id="loginForm">
+                <div class="form-group"><label for="email">Email institutionnel :</label><input type="email" id="email" name="email" required placeholder="professeur@university.ca"></div>
+                <div class="form-group"><label for="password">Mot de passe :</label><input type="password" id="password" name="password" required placeholder="••••••••"></div>
+                <button type="submit" class="login-btn">🔐 Se connecter</button>
+            </form>
+            <div style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 12px; font-size: 0.9em; color: #666;">
+                <strong>Comptes de démo (si API non dispo) :</strong><br>
+                marie.dubois@university.ca / prof123<br>
+                jean.martin@university.ca / prof123
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard-container" id="dashboardContainer">
+        <div class="dashboard-header">
+            <div class="professor-info"><h2 id="professorName"></h2><p id="professorCourse"></p></div>
+            <button class="logout-btn" onclick="logout()">🚪 Déconnexion</button>
+        </div>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-number" id="totalSubmissions">0</div><div class="stat-label">Plans soumis</div></div>
+            <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-number" id="completedAnalyses">0</div><div class="stat-label">Analyses terminées</div></div>
+            <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-number" id="pendingAnalyses">0</div><div class="stat-label">En cours d'analyse</div></div>
+            <div class="stat-card"><div class="stat-icon">📊</div><div class="stat-number" id="averageScore">0</div><div class="stat-label">Score moyen</div></div>
+        </div>
+        <div class="main-panel">
+            <div class="panel-header">
+                <div class="panel-title">📊 Gestion des Plans d'Affaires</div>
+                <div class="controls">
+                    <input type="text" class="search-box" placeholder="🔍 Rechercher un étudiant..." id="searchBox">
+                    <select class="filter-select" id="statusFilter"><option value="all">Tous les statuts</option><option value="completed">Terminé</option><option value="processing">En cours</option><option value="pending">En attente</option></select>
+                    <button class="export-btn" onclick="exportToCSV()">📊 Export CSV</button>
+                </div>
+            </div>
+            <div id="studentsTableContainer"></div>
+        </div>
+    </div>
+
+    <div class="report-modal" id="reportModal">
+        <div class="report-content">
+            <div class="report-header"><h2>📋 Rapport d'Analyse Détaillé</h2><button class="close-btn" onclick="closeReportModal()">❌</button></div>
+            <div id="reportContent"></div>
+        </div>
+    </div>
+
+    <script>
+        // Données des étudiants, sera rempli par l'API
+        let studentsData = [];
+
+        // Variables de tri
+        let sortColumn = null;
+        let sortDirection = 'asc';
+
+        // --- NOUVELLE LOGIQUE D'AUTHENTIFICATION ET DE GESTION DES DONNÉES ---
+
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            try {
+                // Appeler l'API de login
+                const response = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Email ou mot de passe incorrect');
+                }
+                
+                const data = await response.json();
+                
+                // Sauvegarder le token et les infos du professeur
+                localStorage.setItem('professorToken', data.access_token);
+                localStorage.setItem('professorInfo', JSON.stringify(data.professor));
+                
+                // Mettre à jour l'interface
+                document.getElementById('loginContainer').style.display = 'none';
+                document.getElementById('dashboardContainer').style.display = 'block';
+                document.getElementById('professorName').textContent = data.professor.name;
+                document.getElementById('professorCourse').textContent = data.professor.course;
+                
+                // Charger les vraies données
+                await initializeDashboard();
+                
+            } catch (error) {
+                // Fallback pour la démo si l'API n'est pas accessible
+                const demoAccounts = {
+                    'marie.dubois@university.ca': { password: 'prof123', name: 'Dr. Marie Dubois', course: 'Entrepreneuriat Technologique - Session Automne 2025' },
+                    'jean.martin@university.ca': { password: 'prof123', name: 'M. Jean Martin', course: 'Plans d\'Affaires & Financement - Session Automne 2025' }
+                };
+                if (demoAccounts[email] && demoAccounts[email].password === password) {
+                    console.warn("API non disponible. Connexion avec les données de démo.");
+                    localStorage.setItem('professorInfo', JSON.stringify(demoAccounts[email]));
+                    document.getElementById('loginContainer').style.display = 'none';
+                    document.getElementById('dashboardContainer').style.display = 'block';
+                    document.getElementById('professorName').textContent = demoAccounts[email].name;
+                    document.getElementById('professorCourse').textContent = demoAccounts[email].course;
+                    await initializeDashboard(); 
+                } else {
+                    alert('Erreur de connexion: ' + error.message);
+                }
+            }
+        });
+
+        async function initializeDashboard() {
+            try {
+                const token = localStorage.getItem('professorToken');
+                
+                if (!token) {
+                    console.warn('Pas de token JWT, utilisation des données simulées');
+                    studentsData = [ { id: 1, name: "Sophie Dubois", email: "sophie.dubois@university.ca", project: "Application mobile de covoiturage étudiant", status: "completed", submissionDate: "2025-06-15 14:30", score: 82, lastActivity: "2025-06-15 16:45" }, { id: 2, name: "Marc Tremblay", email: "marc.tremblay@university.ca", project: "Plateforme e-commerce produits locaux", status: "completed", submissionDate: "2025-06-16 09:15", score: 76, lastActivity: "2025-06-16 11:30" }, { id: 3, name: "Julie Martin", email: "julie.martin@university.ca", project: "Service de livraison de repas healthy", status: "processing", submissionDate: "2025-06-18 16:20", score: null, lastActivity: "2025-06-18 16:20" }, { id: 4, name: "Alexandre Roy", email: "alexandre.roy@university.ca", project: "Startup tech - IoT pour agriculture", status: "completed", submissionDate: "2025-06-17 11:45", score: 88, lastActivity: "2025-06-17 13:20" }, { id: 5, name: "Emma Bouchard", email: "emma.bouchard@university.ca", project: "Plateforme formation en ligne", status: "processing", submissionDate: "2025-06-18 10:30", score: null, lastActivity: "2025-06-18 10:30" }, { id: 6, name: "Thomas Gagnon", email: "thomas.gagnon@university.ca", project: "Service consulting PME", status: "completed", submissionDate: "2025-06-14 15:10", score: 79, lastActivity: "2025-06-14 17:25" }, { id: 7, name: "Océane Laval", email: "oceane.laval@university.ca", project: "Application wellness et méditation", status: "processing", submissionDate: "2025-06-18 14:15", score: null, lastActivity: "2025-06-18 14:15" }, { id: 8, name: "Nathan Pelletier", email: "nathan.pelletier@university.ca", project: "Marketplace artisans locaux", status: "completed", submissionDate: "2025-06-16 13:20", score: 84, lastActivity: "2025-06-16 15:45" }, { id: 9, name: "Camille Dostie", email: "camille.dostie@university.ca", project: "Service garde d'animaux à domicile", status: "processing", submissionDate: "2025-06-18 17:30", score: null, lastActivity: "2025-06-18 17:30" }, { id: 10, name: "Maxime Leblanc", email: "maxime.leblanc@university.ca", project: "Plateforme formation continue pros", status: "completed", submissionDate: "2025-06-15 16:40", score: 91, lastActivity: "2025-06-15 18:15" }, { id: 11, name: "Léa Morin", email: "lea.morin@university.ca", project: "Service recyclage électronique", status: "completed", submissionDate: "2025-06-17 10:20", score: 77, lastActivity: "2025-06-17 12:35" }, { id: 12, name: "Gabriel Côté", email: "gabriel.cote@university.ca", project: "Startup fintech - micro-investissement", status: "completed", submissionDate: "2025-06-16 14:50", score: 85, lastActivity: "2025-06-16 16:25" } ];
+                    updateStats();
+                    renderStudentsTable();
+                    setupEventListeners();
+                    return;
+                }
+                
+                const response = await fetch('/professor/dashboard', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) { throw new Error('Erreur lors de la récupération des données'); }
+                
+                const data = await response.json();
+                
+                document.getElementById('totalSubmissions').textContent = data.stats.total_submissions;
+                document.getElementById('completedAnalyses').textContent = data.stats.completed_analyses;
+                document.getElementById('pendingAnalyses').textContent = data.stats.processing;
+                document.getElementById('averageScore').textContent = data.stats.average_score;
+                
+                studentsData = data.submissions.map(submission => ({
+                    id: submission.id,
+                    name: submission.student_name,
+                    email: submission.student_email,
+                    project: submission.project_title,
+                    status: submission.status,
+                    submissionDate: submission.submission_date,
+                    score: submission.score,
+                    lastActivity: submission.analysis_completed_at || submission.submission_date
+                }));
+                
+                renderStudentsTable();
+                setupEventListeners();
+                
+            } catch (error) {
+                console.error('Erreur lors du chargement du dashboard:', error);
+                updateStats();
+                renderStudentsTable();
+                setupEventListeners();
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('professorToken');
+            localStorage.removeItem('professorInfo');
+            
+            document.getElementById('loginContainer').style.display = 'flex';
+            document.getElementById('dashboardContainer').style.display = 'none';
+            document.getElementById('loginForm').reset();
+            
+            studentsData = [];
+        }
+
+        async function viewReport(studentId) {
+            try {
+                const token = localStorage.getItem('professorToken');
+                
+                if (!token) {
+                    const student = studentsData.find(s => s.id === studentId);
+                    if (!student) return;
+                    const reportContent = generateDetailedReport(student);
+                    document.getElementById('reportContent').innerHTML = reportContent;
+                    document.getElementById('reportModal').style.display = 'flex';
+                    return;
+                }
+                
+                const response = await fetch(`/submissions/${studentId}/analysis`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (!response.ok) { throw new Error('Rapport non disponible'); }
+                
+                const analysis = await response.json();
+                
+                document.getElementById('reportContent').innerHTML = analysis.report_content;
+                document.getElementById('reportModal').style.display = 'flex';
+                
+            } catch (error) {
+                alert('Erreur lors de la récupération du rapport: ' + error.message);
+            }
+        }
+
+        // --- FONCTIONS D'AFFICHAGE ET D'INTERACTION (la plupart inchangées) ---
+
+        function updateStats() {
+            const completed = studentsData.filter(s => s.status === 'completed').length;
+            const processing = studentsData.filter(s => s.status === 'processing').length;
+            const total = studentsData.length;
+            
+            const completedStudents = studentsData.filter(s => s.status === 'completed' && s.score);
+            const averageScore = completedStudents.length > 0 ? Math.round(completedStudents.reduce((sum, s) => sum + s.score, 0) / completedStudents.length) : 0;
+
+            document.getElementById('totalSubmissions').textContent = total;
+            document.getElementById('completedAnalyses').textContent = completed;
+            document.getElementById('pendingAnalyses').textContent = processing;
+            document.getElementById('averageScore').textContent = averageScore;
+        }
+
+        function renderStudentsTable(data = null) {
+            const displayData = data || studentsData;
+            const container = document.getElementById('studentsTableContainer');
+            
+            if (displayData.length === 0) {
+                container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><h3>Aucun plan d'affaires trouvé</h3><p>Aucun résultat ne correspond à vos critères de recherche.</p></div>`;
+                return;
+            }
+
+            const tableHTML = `
+                <table class="students-table">
+                    <thead><tr>
+                        <th class="sortable-header" onclick="sortTable('name')">👤 Étudiant ${getSortIcon('name')}</th>
+                        <th>📋 Projet</th>
+                        <th class="sortable-header" onclick="sortTable('date')">📅 Soumission ${getSortIcon('date')}</th>
+                        <th>📊 Statut</th>
+                        <th>🎯 Score</th>
+                        <th>⚙️ Actions</th>
+                    </tr></thead>
+                    <tbody>${displayData.map(student => `
+                        <tr>
+                            <td><div style="font-weight: 600;">${student.name}</div><div style="font-size: 0.85em; color: #666;">${student.email}</div></td>
+                            <td><div style="font-weight: 500; max-width: 250px; line-height: 1.4;">${student.project}</div></td>
+                            <td><div>${formatDate(student.submissionDate)}</div><div style="font-size: 0.85em; color: #666;">${formatTime(student.submissionDate)}</div></td>
+                            <td><span class="status-badge status-${student.status}">${getStatusText(student.status)}</span></td>
+                            <td>${student.score ? `<span style="font-weight: 700; color: #4facfe; font-size: 1.1em;">${student.score}/100</span>` : '<span style="color: #999;">En attente</span>'}</td>
+                            <td>${student.status === 'completed' ? `<button class="action-btn" onclick="viewReport(${student.id})">📋 Voir rapport</button><button class="action-btn secondary" onclick="copyEmail(${student.id})">📋 Copier email</button>` : `<button class="action-btn secondary" onclick="viewStatus(${student.id})">👀 Statut</button>`}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>`;
+            container.innerHTML = tableHTML;
+        }
+
+        function getSortIcon(column) {
+            if (sortColumn !== column) return '↕️';
+            return sortDirection === 'asc' ? '▲' : '▼';
+        }
+
+        function sortTable(column) {
+            if (sortColumn === column) {
+                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+            } else {
+                sortColumn = column;
+                sortDirection = 'asc';
+            }
+            let sortedData = getFilteredData();
+            if (column === 'name') {
+                sortedData.sort((a, b) => {
+                    const comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                });
+            } else if (column === 'date') {
+                sortedData.sort((a, b) => {
+                    const dateA = new Date(a.submissionDate);
+                    const dateB = new Date(b.submissionDate);
+                    const comparison = dateA - dateB;
+                    return sortDirection === 'asc' ? comparison : -comparison;
+                });
+            }
+            renderStudentsTable(sortedData);
+        }
+
+        function getFilteredData() {
+            let filtered = [...studentsData];
+            const searchQuery = document.getElementById('searchBox').value.toLowerCase();
+            if (searchQuery) {
+                filtered = filtered.filter(student => student.name.toLowerCase().includes(searchQuery) || student.email.toLowerCase().includes(searchQuery) || student.project.toLowerCase().includes(searchQuery));
+            }
+            const statusFilter = document.getElementById('statusFilter').value;
+            if (statusFilter !== 'all') {
+                filtered = filtered.filter(s => s.status === statusFilter);
+            }
+            return filtered;
+        }
+
+        function setupEventListeners() {
+            document.getElementById('searchBox').addEventListener('input', function() { renderStudentsTable(getFilteredData()); });
+            document.getElementById('statusFilter').addEventListener('change', function() { renderStudentsTable(getFilteredData()); });
+        }
+
+        function formatDate(dateString) { const date = new Date(dateString); return date.toLocaleDateString('fr-CA'); }
+        function formatTime(dateString) { const date = new Date(dateString); return date.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' }); }
+        function getStatusText(status) { return { 'completed': '✅ Terminé', 'processing': '⏳ En cours', 'pending': '⏸️ En attente' }[status] || status; }
+        
+        function generateDetailedReport(student) {
+            return `<div style="margin-bottom: 30px;"><h3 style="margin-bottom: 15px;">📋 Informations du Projet</h3><div style="background: #f8f9fa; padding: 20px; border-radius: 12px;"><div style="margin-bottom: 10px;"><strong>Étudiant:</strong> ${student.name}</div><div style="margin-bottom: 10px;"><strong>Email:</strong> ${student.email}</div><div style="margin-bottom: 10px;"><strong>Projet:</strong> ${student.project}</div><div style="margin-bottom: 10px;"><strong>Date de soumission:</strong> ${formatDate(student.submissionDate)} à ${formatTime(student.submissionDate)}</div><div><strong>Score global:</strong> <span style="color: #4facfe; font-weight: 700; font-size: 1.2em;">${student.score}/100</span></div></div></div><div class="quick-stats"><div class="quick-stat"><div class="quick-stat-number">16/20</div><div class="quick-stat-label">Viabilité Concept</div></div><div class="quick-stat"><div class="quick-stat-number">14/20</div><div class="quick-stat-label">Étude Marché</div></div><div class="quick-stat"><div class="quick-stat-number">15/20</div><div class="quick-stat-label">Modèle Économique</div></div><div class="quick-stat"><div class="quick-stat-number">13/20</div><div class="quick-stat-label">Stratégie Marketing</div></div><div class="quick-stat"><div class="quick-stat-number">12/20</div><div class="quick-stat-label">Projections Financières</div></div><div class="quick-stat"><div class="quick-stat-number">12/20</div><div class="quick-stat-label">Gestion Risques</div></div></div><div style="margin: 30px 0;"><h3 style="margin-bottom: 15px;">🎯 Résumé Exécutif</h3><div style="background: #f0f6ff; padding: 20px; border-radius: 12px; border-left: 4px solid #4facfe;"><p style="line-height: 1.6; color: #333;">Ce plan d'affaires présente un projet ${student.project.toLowerCase()} avec un potentiel commercial intéressant. L'analyse révèle des forces notables dans la conception du produit/service et l'identification du marché cible. Cependant, certains aspects nécessitent un approfondissement.</p></div></div><div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 16px; text-align: center; margin-top: 30px;"><h3 style="margin-bottom: 10px;">✅ Évaluation Terminée</h3><p style="opacity: 0.9;">Rapport généré automatiquement • Analyse en 7min 23sec<br>Email envoyé le ${formatDate(student.lastActivity)} à ${formatTime(student.lastActivity)}</p></div>`;
+        }
+
+        function closeReportModal() { document.getElementById('reportModal').style.display = 'none'; }
+        
+        function copyEmail(studentId) {
+            const student = studentsData.find(s => s.id === studentId);
+            if (!student) return;
+            navigator.clipboard.writeText(student.email).then(() => alert(`📋 Email copié !\n\n${student.email}`), () => alert('Erreur lors de la copie'));
+        }
+
+        function viewStatus(studentId) {
+            const student = studentsData.find(s => s.id === studentId);
+            if (student) alert(`⏳ Analyse en cours pour ${student.name}\n\nLe traitement est en cours...`);
         }
         
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            color: #333;
+        function exportToCSV() {
+            const headers = ['Nom', 'Email', 'Projet', 'Date Soumission', 'Statut', 'Score'];
+            const csvData = [headers.join(',')];
+            studentsData.forEach(student => {
+                const row = [`"${student.name}"`,`"${student.email}"`,`"${student.project}"`,`"${student.submissionDate}"`,`"${getStatusText(student.status)}"`,student.score || 'En attente'];
+                csvData.push(row.join(','));
+            });
+            const a = document.createElement('a');
+            a.href = window.URL.createObjectURL(new Blob([csvData.join('\n')], { type: 'text/csv' }));
+            a.download = `plans_affaires_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            alert('📊 Export CSV téléchargé avec succès !');
         }
-        
-        .login-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        
-        .login-panel {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 50px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            max-width: 450px;
-            width: 100%;
-        }
-        
-        .login-header {
-            text-align: center;
-            margin-bottom: 40px;
-        }
-        
-        .login-header h1 {
-            font-size: 2.5em;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            margin-bottom: 10px;
-            font-weight: 800;
-        }
-        
-        .login-header p {
-            color: #666;
-            font-size: 1.1em;
-        }
-        
-        .dashboard-container {
-            display: none;
-            padding: 20px;
-            max-width: 1400px;
-            margin: 0 auto;
-        }
-        
-        .dashboard-header {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .professor-info h2 {
-            font-size: 2em;
-            color: #333;
-            margin-bottom: 5px;
-            font-weight: 700;
-        }
-        
-        .professor-info p {
-            color: #666;
-            font-size: 1.1em;
-        }
-        
-        .logout-btn {
-            background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .logout-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(255, 71, 87, 0.3);
-        }
-        
-        .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 25px;
-            margin-bottom: 30px;
-        }
-        
-        .stat-card {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-        
-        .stat-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 25px 70px rgba(0,0,0,0.15);
-        }
-        
-        .stat-icon {
-            font-size: 3em;
-            margin-bottom: 15px;
-            opacity: 0.8;
-        }
-        
-        .stat-number {
-            font-size: 2.5em;
-            font-weight: 800;
-            color: #4facfe;
-            margin-bottom: 10px;
-        }
-        
-        .stat-label {
-            color: #666;
-            font-weight: 600;
-            font-size: 1.1em;
-        }
-        
-        .main-panel {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(20px);
-            border-radius: 24px;
-            padding: 40px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        .panel-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #f0f0f0;
-        }
-        
-        .panel-title {
-            font-size: 1.8em;
-            font-weight: 700;
-            color: #333;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .controls {
-            display: flex;
-            gap: 15px;
-            align-items: center;
-        }
-        
-        .search-box {
-            padding: 12px 20px;
-            border: 2px solid #e1e5e9;
-            border-radius: 12px;
-            font-size: 1em;
-            width: 250px;
-            transition: all 0.3s ease;
-        }
-        
-        .search-box:focus {
-            outline: none;
-            border-color: #4facfe;
-            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
-        }
-        
-        .filter-select {
-            padding: 12px 15px;
-            border: 2px solid #e1e5e9;
-            border-radius: 12px;
-            font-size: 1em;
-            background: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        
-        .filter-select:focus {
-            outline: none;
-            border-color: #4facfe;
-        }
-        
-        .export-btn {
-            background: linear-gradient(135deg, #4CAF50 0%, #45A049 100%);
-            color: white;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 12px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        
-        .export-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
-        }
-        
-        .students-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-        
-        .students-table th {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+
+        document.getElementById('reportModal').addEventListener('click', function(e) { if (e.target === this) { closeReportModal(); } });
+    </script>
+</body>
+</html>
