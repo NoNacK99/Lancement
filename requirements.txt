@@ -7,7 +7,10 @@ python-jose[cryptography]
 PyJWT
 jinja2
 
-# --- Dépendances pour corriger le bug Supabase/proxy ---
-# On spécifie des versions précises pour garantir la compatibilité.
+# --- Dépendances pour le téléversement de fichiers ---
 httpx>=0.25.0
 supabase>=2.0.0
+
+# --- Dépendances pour l'analyse de fichiers (PDF, DOCX) ---
+PyPDF2
+python-docx
