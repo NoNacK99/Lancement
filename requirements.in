@@ -30,3 +30,4 @@ httpx  # Souvent une bonne idée de le lister directement si on fait des appels 
 PyPDF2
 python-docx
 beautifulsoup4
+httpx<0.26.0
