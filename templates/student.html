@@ -454,17 +454,24 @@
         
         // Charger les professeurs au démarrage
         async function loadProfessors() {
+            const select = document.getElementById('professor'); // Cible l'ID "professor" du HTML
             try {
-                const response = await fetch('/professors');
+                // CORRECTION 1: On s'assure que l'URL est bien '/api/professors'
+                const response = await fetch('/api/professors');
+                
+                if (!response.ok) {
+                    throw new Error(`Erreur réseau: ${response.status}`);
+                }
+
                 const professors = await response.json();
                 
-                const select = document.getElementById('professor');
                 select.innerHTML = '<option value="">Sélectionnez votre professeur</option>';
                 
                 professors.forEach(prof => {
                     const option = document.createElement('option');
                     option.value = prof.id; // Utiliser l'ID UUID !
-                    option.textContent = prof.name;
+                    // CORRECTION 2: On affiche le nom ET le cours pour plus de clarté
+                    option.textContent = `${prof.name} - ${prof.course}`;
                     select.appendChild(option);
                     
                     // Stocker les données pour affichage ultérieur
@@ -472,7 +479,6 @@
                 });
             } catch (error) {
                 console.error('Erreur chargement professeurs:', error);
-                const select = document.getElementById('professor');
                 select.innerHTML = '<option value="">Erreur de chargement - Rechargez la page</option>';
             }
         }
@@ -677,7 +683,7 @@
             `;
         }
         
-        // Initialisation
+        // CORRECTION 3: S'assurer que loadProfessors() est appelé au chargement de la page.
         document.addEventListener('DOMContentLoaded', function() {
             loadProfessors();
             

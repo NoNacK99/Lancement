@@ -154,10 +154,31 @@ async def serve_student_page(request: Request):
     """Sert la page HTML pour la soumission des étudiants."""
     return templates.TemplateResponse("student.html", {"request": request})
 
-@app.get("/professor", tags=["Pages HTML"])
-async def serve_professor_page(request: Request):
-    """Sert la page HTML pour le tableau de bord des professeurs."""
-    return templates.TemplateResponse("professor.html", {"request": request})
+@app.get("/api/professors", response_model=List[ProfessorResponse], tags=["Données"])
+async def get_all_professors(conn: AsyncConnection = Depends(get_db_connection)):
+    """
+    Récupère la liste de tous les professeurs depuis la base de données
+    pour peupler les menus déroulants sur le frontend.
+    """
+    try:
+        query = "SELECT id, email, name, course FROM professors"
+        cursor = await conn.execute(query)
+        professors = await cursor.fetchall()
+        
+        # Convertir les résultats en une liste de dictionnaires
+        professors_list = [
+            {
+                "id": str(row[0]),
+                "email": row[1],
+                "name": row[2],
+                "course": row[3]
+            } for row in professors
+        ]
+        return professors_list
+    except Exception as e:
+        # En cas d'erreur de base de données, renvoyer une erreur 500
+        print(f"❌ Erreur lors de la récupération des professeurs: {e}")
+        raise HTTPException(status_code=500, detail="Erreur interne du serveur lors de la récupération des professeurs.")
 
 
 # --- B. ROUTES POUR LA LOGIQUE MÉTIER (API) ---
