@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     throw new Error(error.detail || 'Email ou mot de passe incorrect');
                 }
                 
-                const data = await response.json();
+            
                 
                 // Sauvegarder le token et les infos du professeur
                 localStorage.setItem('professorToken', data.access_token);
@@ -154,8 +154,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Mettre à jour l'interface
                 document.getElementById('loginContainer').style.display = 'none';
                 document.getElementById('dashboardContainer').style.display = 'block';
-                document.getElementById('professorName').textContent = data.professor.name;
-                document.getElementById('professorCourse').textContent = data.professor.course;
+                document.getElementById('professorName').textContent = data.professor?.name || email;
+                document.getElementById('professorCourse').textContent = data.professor?.course || 'Cours';
                 
                 // Charger les vraies données
                 await initializeDashboard();
@@ -389,8 +389,7 @@ document.addEventListener('DOMContentLoaded', function() {
             a.click();
             alert('📊 Export CSV téléchargé avec succès !');
         }
-
-        document.getElementById('reportModal').addEventListener('click', function(e) { if (e.target === this) { closeReportModal(); } });
+    
     </script>
         document.getElementById('loginForm').addEventListener('submit', async function(e) {
         e.preventDefault();
