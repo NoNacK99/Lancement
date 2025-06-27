@@ -1,33 +1,16 @@
-# Fichier : requirements.in
-# -------------------------
-# Ici, nous listons seulement les dépendances directes de notre projet.
-# 'pip-compile' se chargera de trouver et de verrouiller les versions
-# de toutes les sous-dépendances nécessaires.
-
-# Framework de l'API web et son serveur
+# Fichier : requirements.in (Version finale de débogage)
 fastapi
 uvicorn
-
-# Connexion à la base de données PostgreSQL
 psycopg[binary]
-
-# Support pour les formulaires et l'upload de fichiers dans FastAPI
 python-multipart
 aiofiles
-
-# Stack d'authentification et de sécurité
 PyJWT
 python-jose[cryptography]
 passlib[bcrypt]
 email-validator
-
-# Clients pour les services externes
 openai
-supabase
-
-
-# Traitement de documents et de données
+# On verrouille supabase à une version stable connue pour compatibilité
+supabase==1.0.0
 PyPDF2
 python-docx
 beautifulsoup4
-
