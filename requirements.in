@@ -14,3 +14,4 @@ supabase==1.0.0
 PyPDF2
 python-docx
 beautifulsoup4
+httpx[http2]==0.24.1

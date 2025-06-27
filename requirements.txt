@@ -66,7 +66,15 @@ h11==0.14.0
     #   uvicorn
 httpcore==0.16.3
     # via httpx
+<<<<<<< HEAD
 httpx==0.23.3
+=======
+hpack==4.1.0
+    # via h2
+httpcore==0.17.3
+    # via httpx
+httpx[http2]==0.24.1
+>>>>>>> be1371a63dcbae1185deccec8a1ff79a3ee17101
     # via
     #   gotrue
     #   openai
