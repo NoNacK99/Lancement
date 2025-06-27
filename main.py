@@ -1,6 +1,7 @@
 # 🚀 API FastAPI - Plateforme Plans d'Affaires
 # Version avec IA réelle intégrée et Supabase Storage !
-
+import httpx
+print(f"--- DIAGNOSTIC: Version de httpx réellement installée: {httpx.__version__} ---")
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Form, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -16,6 +17,7 @@ import uuid
 import json
 from passlib.context import CryptContext
 from supabase import create_client, Client # <- [1] AJOUT DE L'IMPORT
+
 
 # Import du module d'analyse IA
 from ai_analyzer import extract_text_from_file, analyze_business_plan, generate_formatted_report
