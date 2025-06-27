@@ -54,3 +54,4 @@ typing-inspection==0.4.1
 uvicorn==0.24.0
 websockets==15.0.1
 Gunicorn
+jinja2
