@@ -52,7 +52,7 @@ hpack==4.1.0
     # via h2
 httpcore==0.18.0
     # via httpx
-httpx[http2]==0.24.1
+sed -i 's/httpx\[http2\]==0.25.0/httpx[http2]==0.24.1/g' requirements.txt
     # via
     #   -r requirements.in
     #   gotrue
