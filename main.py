@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 import uuid
 import json
 from passlib.context import CryptContext
+from fastapi.staticfiles import StaticFiles
 from supabase import create_client, Client # <- [1] AJOUT DE L'IMPORT
 
 
