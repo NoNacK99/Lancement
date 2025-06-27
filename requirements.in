@@ -24,10 +24,10 @@ email-validator
 # Clients pour les services externes
 openai
 supabase
-httpx  # Souvent une bonne idée de le lister directement si on fait des appels HTTP
+
 
 # Traitement de documents et de données
 PyPDF2
 python-docx
 beautifulsoup4
-httpx<0.26.0
+
