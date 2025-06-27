@@ -167,17 +167,7 @@ document.addEventListener('DOMContentLoaded', function() {
     alert('Erreur de connexion: ' + error.message);
 }
                 
-                if (demoAccounts[email] && demoAccounts[email].password === password) {
-                    console.warn("API non disponible. Connexion avec les données de démo.");
-                    localStorage.setItem('professorInfo', JSON.stringify(demoAccounts[email]));
-                    document.getElementById('loginContainer').style.display = 'none';
-                    document.getElementById('dashboardContainer').style.display = 'block';
-                    document.getElementById('professorName').textContent = demoAccounts[email].name;
-                    document.getElementById('professorCourse').textContent = demoAccounts[email].course;
-                    await initializeDashboard(); 
-                } else {
-                    alert('Erreur de connexion: ' + error.message);
-                }
+                
             }
         );
 
