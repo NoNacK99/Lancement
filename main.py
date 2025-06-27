@@ -39,7 +39,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+@app.get("/", response_class=FileResponse)
+async def serve_student_page_at_root():
+    """
+    Sert la page de soumission des étudiants quand on visite la racine du site.
+    C'est plus convivial qu'un simple message JSON.
+    """
+    return "student.html"
 
+
+@app.get("/student", response_class=FileResponse)
+async def serve_student_page():
+    """Sert la page HTML pour les étudiants."""
+    return "student.html"
+
+
+@app.get("/professor", response_class=FileResponse)
+async def serve_professor_page():
+    """Sert la page HTML pour le tableau de bord des professeurs."""
+    return "professor.html"
 # 🔐 Sécurité JWT
 security = HTTPBearer()
 SECRET_KEY = os.getenv("JWT_SECRET", "your-secret-key-change-in-prod")
