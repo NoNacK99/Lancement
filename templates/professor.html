@@ -161,12 +161,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 await initializeDashboard();
                 
             } catch (error) {
-               } catch (error) {
+
     // Affiche simplement l'erreur retournée par le serveur ou le réseau.
     console.error('Échec de la connexion:', error);
     alert('Erreur de connexion: ' + error.message);
 }
-                };
+                
                 if (demoAccounts[email] && demoAccounts[email].password === password) {
                     console.warn("API non disponible. Connexion avec les données de démo.");
                     localStorage.setItem('professorInfo', JSON.stringify(demoAccounts[email]));
@@ -179,7 +179,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('Erreur de connexion: ' + error.message);
                 }
             }
-        });
+        );
 
         async function initializeDashboard() {
             try {
