@@ -161,10 +161,11 @@
                 await initializeDashboard();
                 
             } catch (error) {
-                // Fallback pour la démo si l'API n'est pas accessible
-                const demoAccounts = {
-                    'marie.dubois@university.ca': { password: 'prof123', name: 'Dr. Marie Dubois', course: 'Entrepreneuriat Technologique - Session Automne 2025' },
-                    'jean.martin@university.ca': { password: 'prof123', name: 'M. Jean Martin', course: 'Plans d\'Affaires & Financement - Session Automne 2025' }
+               } catch (error) {
+    // Affiche simplement l'erreur retournée par le serveur ou le réseau.
+    console.error('Échec de la connexion:', error);
+    alert('Erreur de connexion: ' + error.message);
+}
                 };
                 if (demoAccounts[email] && demoAccounts[email].password === password) {
                     console.warn("API non disponible. Connexion avec les données de démo.");
