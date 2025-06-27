@@ -115,7 +115,7 @@
             <div id="reportContent"></div>
         </div>
     </div>
-
+document.addEventListener('DOMContentLoaded', function() {
     <script>
         // Données des étudiants, sera rempli par l'API
         let studentsData = [];
@@ -402,5 +402,7 @@
 
         document.getElementById('reportModal').addEventListener('click', function(e) { if (e.target === this) { closeReportModal(); } });
     </script>
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
 </body>
 </html>
