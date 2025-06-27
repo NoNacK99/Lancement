@@ -14,3 +14,4 @@ supabase>=2.0.0
 # --- Dépendances pour l'analyse de fichiers (PDF, DOCX) ---
 PyPDF2
 python-docx
+openai==1.12.0
