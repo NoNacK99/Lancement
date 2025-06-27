@@ -154,6 +154,10 @@ async def serve_student_page(request: Request):
     """Sert la page HTML pour la soumission des étudiants."""
     return templates.TemplateResponse("student.html", {"request": request})
 
+@app.get("/professor", tags=["Pages HTML"])
+async def serve_professor_page(request: Request):
+    """Sert la page HTML pour les professeurs."""
+    return templates.TemplateResponse("professor.html", {"request": request})
 @app.get("/api/professors", response_model=List[ProfessorResponse], tags=["Données"])
 async def get_all_professors(conn: AsyncConnection = Depends(get_db_connection)):
     """
