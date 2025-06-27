@@ -18,7 +18,52 @@ import json
 from passlib.context import CryptContext
 from fastapi.staticfiles import StaticFiles
 from supabase import create_client, Client # <- [1] AJOUT DE L'IMPORT
+from flask import Flask, render_template
+from flask import Flask, render_template
 
+# ==============================================================================
+# 2. CRÉATION DE L'APPLICATION
+# On crée une "instance" de notre application. C'est l'objet principal
+# qui va gérer toutes nos pages, nos routes et notre serveur.
+# (la variable __name__ aide Flask à se repérer dans vos dossiers)
+# ==============================================================================
+app = Flask(__name__)
+
+# ==============================================================================
+# 3. DÉFINITION DES PAGES (LES "ROUTES")
+# Une route, c'est le lien entre une URL (ce que l'utilisateur tape dans
+# son navigateur) et une fonction Python qui doit s'exécuter.
+# ==============================================================================
+
+# --- Route pour la page d'accueil ---
+# L'URL est "/", c'est la racine du site (ex: http://mon-site.com/)
+@app.route('/')
+def accueil():
+    """
+    Cette fonction s'exécute quand quelqu'un visite la page d'accueil.
+    Elle affiche la page des étudiants par défaut.
+    """
+    return render_template('student.html')
+
+# --- Route pour la page des étudiants ---
+# L'URL est "/student" (ex: http://mon-site.com/student)
+@app.route('/student')
+def page_etudiant():
+    """
+    Cette fonction s'exécute pour afficher la page des étudiants.
+    """
+    # On demande à Flask de "rendre" le fichier student.html
+    return render_template('student.html')
+
+# --- Route pour la page des professeurs ---
+# L'URL est "/professor" (ex: http://mon-site.com/professor)
+@app.route('/professor')
+def page_professeur():
+    """
+    Cette fonction s'exécute pour afficher la page des professeurs.
+    """
+    # On demande à Flask de "rendre" le fichier professor.html
+    return render_template('professor.html')
 
 # Import du module d'analyse IA
 from ai_analyzer import extract_text_from_file, analyze_business_plan, generate_formatted_report
