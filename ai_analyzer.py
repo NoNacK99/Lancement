@@ -9,19 +9,17 @@ from typing import Dict, Any
 from openai import AsyncOpenAI
 
 # ==========================================================
-# 1. CONFIGURATION (On garde votre initialisation, elle est meilleure)
+# 1. CONFIGURATION (Inchangée)
 # ==========================================================
 try:
     client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 except Exception as e:
     print(f"⚠️ Erreur initialisation OpenAI: {e}")
-    # Fallback si erreur
     import openai
     openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # ==========================================================
-# 2. EXTRACTION DE TEXTE (Fusion des deux logiques)
-#    Cette fonction télécharge depuis une URL PUIS applique vos règles de troncature.
+# 2. EXTRACTION DE TEXTE (Avec le correctif pour l'URL)
 # ==========================================================
 async def extract_text_from_file(file_url: str) -> str:
     """
@@ -42,11 +40,15 @@ async def extract_text_from_file(file_url: str) -> str:
     file_in_memory = io.BytesIO(file_content_bytes)
     text = ""
 
+    # --- LE CORRECTIF EST ICI ---
+    # On nettoie l'URL pour enlever les paramètres comme '?'
+    clean_url = file_url.split('?')[0]
+
     try:
-        if file_url.lower().endswith('.pdf'):
+        if clean_url.lower().endswith('.pdf'):
             pdf_reader = PyPDF2.PdfReader(file_in_memory)
             num_pages = len(pdf_reader.pages)
-            max_pages = min(num_pages, 10)  # On garde votre limite de 10 pages
+            max_pages = min(num_pages, 10)
             
             for page_num in range(max_pages):
                 page = pdf_reader.pages[page_num]
@@ -56,9 +58,9 @@ async def extract_text_from_file(file_url: str) -> str:
                 text += f"\n[Note: Document tronqué - {num_pages} pages au total, les 10 premières pages ont été analysées]"
             print("INFO: Extraction PDF réussie.")
 
-        elif file_url.lower().endswith(('.docx')):
+        elif clean_url.lower().endswith('.docx'):
             document = docx.Document(file_in_memory)
-            max_paragraphs = 100 # On garde votre limite de 100 paragraphes
+            max_paragraphs = 100
             paragraphs = document.paragraphs[:max_paragraphs]
             
             for paragraph in paragraphs:
@@ -69,7 +71,7 @@ async def extract_text_from_file(file_url: str) -> str:
                 text += f"\n[Note: Document tronqué - {len(document.paragraphs)} paragraphes au total, les 100 premiers ont été analysés]"
             print("INFO: Extraction DOCX réussie.")
         else:
-            raise ValueError(f"Format de fichier non supporté dans l'URL: {file_url}")
+            raise ValueError(f"Format de fichier non supporté dans l'URL nettoyée: {clean_url}")
             
     except Exception as e:
         print(f"ERREUR: Échec de l'analyse du contenu du fichier. {e}")
@@ -78,7 +80,7 @@ async def extract_text_from_file(file_url: str) -> str:
     return text
 
 # ==========================================================
-# 3. ANALYSE IA (On garde votre fonction, elle est parfaite)
+# 3. ANALYSE IA (Inchangée)
 # ==========================================================
 async def analyze_business_plan(text: str, student_name: str, project_title: str) -> Dict[str, Any]:
     """Analyser un plan d'affaires avec GPT-3.5-turbo (économique)"""
@@ -119,13 +121,11 @@ Sois concis mais constructif."""
         )
         analysis = json.loads(response.choices[0].message.content)
         
-        # --- Votre logique de validation des scores est conservée ---
         if 'scores' not in analysis: analysis['scores'] = {}
         default_scores = {'viabilite_concept': 10, 'etude_marche': 10, 'modele_economique': 10, 'strategie_marketing': 10, 'projections_financieres': 10}
         for key, default in default_scores.items():
             if key not in analysis['scores']: analysis['scores'][key] = default
         
-        # On s'assure que les scores sont bien des nombres
         for key, value in analysis['scores'].items():
             try:
                 analysis['scores'][key] = int(value)
@@ -143,18 +143,17 @@ Sois concis mais constructif."""
         return {"error": str(e), "resume_executif": "Erreur lors de l'analyse auto.", "score_global": 60, "scores": default_scores, "points_forts": [], "axes_amelioration": [], "recommandations": []}
 
 # ==========================================================
-# 4. GÉNÉRATION DU RAPPORT (On garde votre fonction, elle est parfaite)
+# 4. GÉNÉRATION DU RAPPORT (Inchangée)
 # ==========================================================
 def generate_formatted_report(analysis: Dict[str, Any], student_name: str, project_title: str, processing_time: int) -> str:
     """Générer un rapport HTML formaté"""
     scores = analysis.get('scores', {})
     score_global = analysis.get('score_global', 0)
     
-    if score_global >= 80: color_score = "#4CAF50" # Vert
-    elif score_global >= 60: color_score = "#FF9800" # Orange
-    else: color_score = "#f44336" # Rouge
+    if score_global >= 80: color_score = "#4CAF50"
+    elif score_global >= 60: color_score = "#FF9800"
+    else: color_score = "#f44336"
     
-    # Le reste de votre magnifique code HTML pour le rapport
     report_html = f"""
     <div style="font-family: 'Inter', -apple-system, sans-serif; line-height: 1.6; color: #333;">
         <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px; border-radius: 16px; margin-bottom: 30px;">
