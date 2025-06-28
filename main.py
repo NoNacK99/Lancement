@@ -271,6 +271,19 @@ async def login_professor(
         print(f"Erreur login: {str(e)}")
         raise HTTPException(status_code=401, detail="Erreur d'authentification")
 
+# ==========================================================
+# VOTRE FICHIER main.py...
+# ... (tout votre code précédent reste inchangé) ...
+# ==========================================================
+
+
+# ==========================================================
+# 5. ROUTES API
+# ==========================================================
+
+# ... (vos autres routes comme /api/professors, /auth/login, etc. sont ici) ...
+
+# Remplacez votre fonction create_submission par celle-ci
 @app.post("/submissions", response_model=SubmissionResponse, tags=["Soumissions"])
 async def create_submission(
     background_tasks: BackgroundTasks,
@@ -282,50 +295,74 @@ async def create_submission(
     conn: AsyncConnection = Depends(get_db_connection)
 ):
     """Créer une nouvelle soumission, téléverser le fichier sur Supabase et lancer l'analyse IA."""
+    
+    # --- 1. Validation du fichier ---
     if not file.filename.endswith(('.pdf', '.doc', '.docx')):
         raise HTTPException(status_code=400, detail="Format de fichier non supporté. Utilisez PDF ou DOCX.")
-    if file.size > 15 * 1024 * 1024:
+    if file.size > 15 * 1024 * 1024:  # 15MB
         raise HTTPException(status_code=400, detail="Fichier trop volumineux (max 15MB)")
     
+    # --- 2. Préparation des données ---
     file_content = await file.read()
     file_extension = file.filename.split('.')[-1]
     unique_filename_in_bucket = f"{uuid.uuid4()}.{file_extension}"
     
+    # --- 3. Téléversement et récupération de l'URL (BLOC CORRIGÉ) ---
+    public_url = "" # On initialise la variable
     try:
+        # On essaie de téléverser le fichier
         supabase.storage.from_("lancement").upload(
             path=unique_filename_in_bucket,
             file=file_content,
             file_options={"content-type": file.content_type}
         )
+        
+        # Si ça réussit, on récupère l'URL publique de manière sécurisée
         public_url = supabase.storage.from_("lancement").get_public_url(unique_filename_in_bucket)
+
     except Exception as e:
+        # Si une erreur survient pendant l'upload ou la récupération de l'URL, on l'attrape ici
+        print(f"❌ Erreur Supabase: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Erreur lors du téléversement du fichier: {str(e)}")
 
-    query = """
-    INSERT INTO submissions (student_name, student_email, professor_id, project_title, file_url, file_name, file_size, status)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-    RETURNING id, student_name, student_email, project_title, status, submission_date, file_name
-    """
-    cursor = await conn.execute(
-        query, 
-        (student_name, student_email, professor_id, project_title, public_url, file.filename, len(file_content), 'pending')
-    )
-    submission = await cursor.fetchone()
-    await conn.commit()
-    
-    submission_dict = {
-        'id': str(submission[0]),
-        'student_name': submission[1],
-        'student_email': submission[2],
-        'project_title': submission[3],
-        'status': submission[4],
-        'submission_date': submission[5],
-        'file_name': submission[6]
-    }
-    
+    # --- 4. Insertion en base de données ---
+    try:
+        query = """
+        INSERT INTO submissions (student_name, student_email, professor_id, project_title, file_url, file_name, file_size, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id, student_name, student_email, project_title, status, submission_date, file_name
+        """
+        cursor = await conn.execute(
+            query, 
+            (student_name, student_email, professor_id, project_title, public_url, file.filename, len(file_content), 'pending')
+        )
+        submission = await cursor.fetchone()
+        await conn.commit()
+        
+        submission_dict = {
+            'id': str(submission[0]),
+            'student_name': submission[1],
+            'student_email': submission[2],
+            'project_title': submission[3],
+            'status': submission[4],
+            'submission_date': submission[5],
+            'file_name': submission[6]
+        }
+        
+    except Exception as e:
+        print(f"❌ Erreur Base de Données: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de l'enregistrement de la soumission: {str(e)}")
+
+    # --- 5. Lancement de la tâche de fond et retour de la réponse ---
     background_tasks.add_task(process_submission_with_ai, submission_dict['id'])
     
     return SubmissionResponse(**submission_dict)
+
+
+# ==========================================================
+# ... (le reste de votre fichier main.py) ...
+# ==========================================================
+
 
 # ... (le reste de vos routes, comme /professor/dashboard, etc., restent ici)
 
