@@ -193,16 +193,22 @@ async def login_professor(
     conn: AsyncConnection = Depends(get_db_connection)
 ):
     try:
+        print(f"🔍 Tentative de login pour: {professor_data.email}")
+        
         # 1. Authentifier avec Supabase Auth
         auth_response = supabase.auth.sign_in_with_password(
             email=professor_data.email,
             password=professor_data.password
         )
         
+        print(f"📋 Auth response: {auth_response}")
+        
         # Vérifier si la connexion a réussi
         if not auth_response or not auth_response.user:
+            
             raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-        
+    
+
         # 2. Récupérer les infos du prof depuis la DB
         query = "SELECT id, name, course FROM professors WHERE email = %s"
         cursor = await conn.execute(query, (professor_data.email,))
