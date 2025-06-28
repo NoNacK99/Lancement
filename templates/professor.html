@@ -1,201 +1,220 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Professeur – Évaluation Plans d'Affaires</title>
-    <!-- ——————— STYLES (SANS CHANGEMENT MAJEUR) ——————— -->
-    <style>
-        /* ... même feuille de style que précédemment (inchangée) ... */
-    </style>
-</head>
-<body>
-    <!-- ——————— ZONE DE CONNEXION ——————— -->
-    <div class="login-container" id="loginContainer">
-        <div class="login-panel">
-            <div class="login-header">
-                <h1>👨‍🏫 Professeur</h1>
-                <p>Accès au tableau de bord d'évaluation</p>
-            </div>
-            <form id="loginForm">
-                <div class="form-group">
-                    <label for="email">Email institutionnel&nbsp;:</label>
-                    <input type="email" id="email" name="email" required placeholder="professeur@university.ca">
-                </div>
-                <div class="form-group">
-                    <label for="password">Mot de passe&nbsp;:</label>
-                    <input type="password" id="password" name="password" required placeholder="••••••••">
-                </div>
-                <button type="submit" class="login-btn">🔐 Se connecter</button>
-            </form>
-            <div style="margin-top:20px;padding:15px;background:#f8f9fa;border-radius:12px;font-size:.9em;color:#666;">
-                <strong>Comptes de démo (si API non dispo)&nbsp;:</strong><br>
-                marie.dubois@university.ca / prof123<br>
-                jean.martin@university.ca / prof123
-            </div>
-        </div>
-    </div>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Dashboard Professeur – Évaluation Plans d'Affaires</title>
+  
+  <!-- ===============  STYLES  =============== -->
+  <style>
+    /* --- RESET & BASE -------------------------------------- */
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      color: #333;
+    }
 
-    <!-- ——————— DASHBOARD ——————— -->
-    <div class="dashboard-container" id="dashboardContainer">
-        <div class="dashboard-header">
-            <div class="professor-info">
-                <h2 id="professorName"></h2>
-                <p id="professorCourse"></p>
-            </div>
-            <button class="logout-btn" onclick="logout()" aria-label="Déconnexion">🚪 Déconnexion</button>
-        </div>
+    /* --- LOGIN ---------------------------------------------- */
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .login-panel {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 50px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      max-width: 450px;
+      width: 100%;
+    }
+    .login-header { text-align: center; margin-bottom: 40px; }
+    .login-header h1 {
+      font-size: 2.5em;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+      font-weight: 800;
+    }
+    .login-header p { color: #666; font-size: 1.1em; }
 
-        <div class="stats-grid">
-            <div class="stat-card"><div class="stat-icon">📋</div><div class="stat-number" id="totalSubmissions">0</div><div class="stat-label">Plans soumis</div></div>
-            <div class="stat-card"><div class="stat-icon">✅</div><div class="stat-number" id="completedAnalyses">0</div><div class="stat-label">Analyses terminées</div></div>
-            <div class="stat-card"><div class="stat-icon">⏳</div><div class="stat-number" id="pendingAnalyses">0</div><div class="stat-label">En cours d'analyse</div></div>
-            <div class="stat-card"><div class="stat-icon">📊</div><div class="stat-number" id="averageScore">0</div><div class="stat-label">Score moyen</div></div>
-        </div>
+    .form-group { margin-bottom: 25px; }
+    label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 16px;
+      border: 2px solid #e1e5e9;
+      border-radius: 16px;
+      font-size: 1em;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.8);
+    }
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: #4facfe;
+      box-shadow: 0 0 0 4px rgba(79, 172, 254, 0.1);
+      background: #fff;
+    }
+    .login-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+      padding: 16px 40px;
+      border-radius: 16px;
+      font-size: 1.1em;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      width: 100%;
+      margin-top: 10px;
+    }
+    .login-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 15px 35px rgba(102, 126, 234, 0.4);
+    }
 
-        <div class="main-panel">
-            <div class="panel-header">
-                <div class="panel-title">📊 Gestion des Plans d'Affaires</div>
-                <div class="controls">
-                    <input type="text" class="search-box" placeholder="🔍 Rechercher un étudiant..." id="searchBox">
-                    <select class="filter-select" id="statusFilter">
-                        <option value="all">Tous les statuts</option>
-                        <option value="completed">Terminé</option>
-                        <option value="processing">En cours</option>
-                        <option value="pending">En attente</option>
-                    </select>
-                    <button class="export-btn" onclick="exportToCSV()" aria-label="Exporter en CSV">📊 Export CSV</button>
-                </div>
-            </div>
-            <div id="studentsTableContainer"></div>
-        </div>
-    </div>
+    /* --- DASHBOARD ------------------------------------------ */
+    .dashboard-container {
+      display: none;
+      padding: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+    .dashboard-header {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 30px;
+      margin-bottom: 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .professor-info h2 { font-size: 2em; color: #333; font-weight: 700; }
+    .professor-info p { color: #666; font-size: 1.1em; }
+    .logout-btn {
+      background: linear-gradient(135deg, #ff4757 0%, #ff3742 100%);
+      color: #fff;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+    }
+    .logout-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255, 71, 87, 0.3);
+    }
 
-    <!-- ——————— MODAL RAPPORT ——————— -->
-    <div class="report-modal" id="reportModal">
-        <div class="report-content">
-            <div class="report-header">
-                <h2>📋 Rapport d'Analyse Détaillé</h2>
-                <button class="close-btn" onclick="closeReportModal()" aria-label="Fermer le rapport">❌</button>
-            </div>
-            <div id="reportContent"></div>
-        </div>
-    </div>
+    /* --- STAT CARDS ----------------------------------------- */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 25px;
+      margin-bottom: 30px;
+    }
+    .stat-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 20px;
+      padding: 30px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    .stat-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.15);
+    }
+    .stat-icon { font-size: 3em; margin-bottom: 15px; opacity: 0.8; }
+    .stat-number { font-size: 2.5em; font-weight: 800; color: #4facfe; margin-bottom: 10px; }
+    .stat-label { color: #666; font-weight: 600; font-size: 1.1em; }
 
-    <!-- ——————— SCRIPT PRINCIPAL ——————— -->
-    <script>
-        /* -----------------------------------------------------------
-         * VARIABLES GLOBALES
-         * ---------------------------------------------------------*/
-        let studentsData = [];
-        let sortColumn   = null;
-        let sortDirection = 'asc';
+    /* --- TABLE & CONTROLS ----------------------------------- */
+    .main-panel {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    .panel-title { font-size: 1.8em; font-weight: 700; color: #333; display: flex; align-items: center; gap: 15px; }
+    .controls { display: flex; gap: 15px; align-items: center; }
+    .search-box {
+      padding: 12px 20px;
+      border: 2px solid #e1e5e9;
+      border-radius: 12px;
+      font-size: 1em;
+      width: 250px;
+      transition: all 0.3s ease;
+    }
+    .search-box:focus {
+      outline: none;
+      border-color: #4facfe;
+      box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+    }
+    .filter-select {
+      padding: 12px 15px;
+      border: 2px solid #e1e5e9;
+      border-radius: 12px;
+      font-size: 1em;
+      background: #fff;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    .filter-select:focus { outline: none; border-color: #4facfe; }
+    .export-btn {
+      background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+      color: #fff;
+      border: none;
+      padding: 12px 25px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .export-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
+    }
 
-        /* -----------------------------------------------------------
-         * AUTHENTIFICATION
-         * ---------------------------------------------------------*/
-        document.getElementById('loginForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email    = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-
-            try {
-                const response = await fetch('/auth/login', {
-                    method : 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body   : JSON.stringify({ email, password })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Email ou mot de passe incorrect');
-                }
-
-                /* ——— IMPORTANT : on récupère le JSON ICI ——— */
-                const data = await response.json();
-
-                /* ——— SAUVEGARDE DU TOKEN ——— */
-                localStorage.setItem('professorToken', data.access_token);
-                localStorage.setItem('professorInfo',  JSON.stringify(data.professor));
-
-                /* ——— MISE À JOUR UI — DISSIMULER LE LOGIN ——— */
-                document.getElementById('loginContainer').style.display   = 'none';
-                document.getElementById('dashboardContainer').style.display = 'block';
-                document.getElementById('professorName').textContent  = data.professor?.name   || email;
-                document.getElementById('professorCourse').textContent = data.professor?.course || 'Cours';
-
-                await initializeDashboard();
-            } catch (err) {
-                console.error('Échec de la connexion :', err);
-                alert('Erreur de connexion : ' + err.message);
-            }
-        });
-
-        /* -----------------------------------------------------------
-         * INITIALISATION DU DASHBOARD (FAKE DATA SI PAS DE JWT)
-         * ---------------------------------------------------------*/
-        async function initializeDashboard() {
-            try {
-                const token = localStorage.getItem('professorToken');
-                /* — fake data si pas de token — */
-                if (!token) {
-                    studentsData = /* … même tableau simulé qu'avant … */ [];
-                    updateStats();
-                    renderStudentsTable();
-                    setupEventListeners();
-                    return;
-                }
-
-                const response = await fetch('/professor/dashboard', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                if (!response.ok) throw new Error('Erreur lors de la récupération des données');
-
-                const data = await response.json();
-                // … mise à jour stats + studentsData …
-                renderStudentsTable();
-                setupEventListeners();
-            } catch (err) {
-                console.error('Erreur lors du chargement du dashboard :', err);
-                updateStats();
-                renderStudentsTable();
-                setupEventListeners();
-            }
-        }
-
-        /* -----------------------------------------------------------
-         * DÉCONNEXION
-         * ---------------------------------------------------------*/
-        function logout() {
-            localStorage.removeItem('professorToken');
-            localStorage.removeItem('professorInfo');
-            document.getElementById('loginContainer').style.display   = 'flex';
-            document.getElementById('dashboardContainer').style.display = 'none';
-            document.getElementById('loginForm').reset();
-            studentsData = [];
-        }
-
-        /* -----------------------------------------------------------
-         * RAPPORT DÉTAILLÉ (VIEWREPORT)
-         * ---------------------------------------------------------*/
-        async function viewReport(studentId) {
-            try {
-                const token = localStorage.getItem('professorToken');
-                // … même logique qu'avant …
-            } catch (err) {
-                alert('Erreur lors de la récupération du rapport : ' + err.message);
-            }
-        }
-
-        /* -----------------------------------------------------------
-         * RENDU TABLEAU, TRI, FILTRES, ETC.
-         * (fonctions identiques aux originales, simplement déplacées)
-         * ---------------------------------------------------------*/
-        // … updateStats, renderStudentsTable, sortTable, getFilteredData,
-        //    setupEventListeners, formatDate, formatTime, getStatusText,
-        //    generateDetailedReport, closeReportModal, copyEmail, viewStatus,
-        //    exportToCSV …
-
-    </script>
-</body>
-</html>
+    .students-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    .students-table th {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      padding: 18px 15px;
+      text-align: left;
+      font-weight: 700;
+      color: #333;
+      border-bottom: 2px solid #dee2e6;
+      font-size: 0.95em;
+    }
+    .students-table td { padding: 18px 15px; border-bottom: 1px solid #e9ecef; transition: all 0.3s ease; }
+    .students-table tr:hover { background: linear-gradient(135deg, #f8faff 0%, #f0f6ff 100%); }
+    .sortable-header { cursor: pointer; position: relative; user-select: none; transition: all 0.3s ease; }
+    .sortable-header:hover { background: linear-gradient(135deg, #e9ecef 0%, #dee2e6
