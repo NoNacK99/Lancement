@@ -201,10 +201,11 @@
                 const token = localStorage.getItem('professorToken');
                 
                 if (!token) {
-                    console.warn('Pas de token, utilisation des données de démonstration');
-                    loadDemoData();
-                    return;
-                }
+            console.error('Pas de token d\'authentification');
+            alert('Veuillez vous reconnecter');
+            logout();
+            return;
+        }
                 
                 const response = await fetch('/professor/dashboard', {
                     headers: { 'Authorization': `Bearer ${token}` }
