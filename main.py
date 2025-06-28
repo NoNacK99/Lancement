@@ -195,19 +195,50 @@ async def login_professor(
     try:
         print(f"🔍 Tentative de login pour: {professor_data.email}")
         
-        # 1. Authentifier avec Supabase Auth
-        auth_response = supabase.auth.sign_in_with_password(
-            email=professor_data.email,
-            password=professor_data.password
-        )
+        # 1. Authentifier avec Supabase Auth - NOUVELLE SYNTAXE
+        auth_response = supabase.auth.sign_in_with_password({
+            "email": professor_data.email,
+            "password": professor_data.password
+        })
         
         print(f"📋 Auth response: {auth_response}")
         
         # Vérifier si la connexion a réussi
         if not auth_response or not auth_response.user:
-            
+            print("❌ Pas d'user dans la réponse")
             raise HTTPException(status_code=401, detail="Email ou mot de passe incorrect")
-    
+        
+        print(f"✅ User authentifié: {auth_response.user.email}")
+        
+        # 2. Récupérer les infos du prof depuis la DB
+        query = "SELECT id, name, course FROM professors WHERE email = %s"
+        cursor = await conn.execute(query, (professor_data.email,))
+        professor = await cursor.fetchone()
+        
+        if not professor:
+            raise HTTPException(status_code=404, detail="Professeur non trouvé")
+        
+        # 3. Créer la réponse
+        professor_info = {
+            "id": str(professor[0]),
+            "email": professor_data.email,
+            "name": professor[1],
+            "course": professor[2]
+        }
+        
+        access_token = create_access_token(data={"sub": str(professor[0])})
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "professor": professor_info
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erreur login: {str(e)}")
+        raise HTTPException(status_code=401, detail="Erreur d'authentification")
 
         # 2. Récupérer les infos du prof depuis la DB
         query = "SELECT id, name, course FROM professors WHERE email = %s"
