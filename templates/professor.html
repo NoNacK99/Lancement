@@ -293,10 +293,7 @@ async function viewReport(studentId) {
 
     // Affiche la modale avec un message de chargement
     reportContent.innerHTML = '<p style="text-align:center; padding: 2rem;">Chargement du rapport...</p>';
-    // Dans votre HTML, la modale est cachée par défaut. On la rend visible.
-    // Assurez-vous que votre CSS fait en sorte que la classe 'visible' l'affiche.
-    // Ou utilisez : modal.style.display = 'flex'; si vous n'avez pas de classe 'visible'.
-    modal.classList.add('visible'); 
+     modal.style.display = 'flex';
 
     try {
         // Appelle la nouvelle route API que nous avons créée dans main.py
@@ -322,9 +319,7 @@ async function viewReport(studentId) {
 
 // Fonction pour fermer la modale
 function closeReportModal() {
-    // On enlève la classe 'visible' pour la cacher à nouveau.
-    // Ou utilisez : document.getElementById('reportModal').style.display = 'none';
-    document.getElementById('reportModal').classList.remove('visible');
+    document.getElementById('reportModal').style.display = 'none';
 }
 
         // Mise à jour des statistiques
