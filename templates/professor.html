@@ -274,46 +274,56 @@ async function initializeDashboard() {
             studentsData = [];
         }
 
-        // Fonction pour afficher le rapport dans la modale
-async function viewReport(submissionId) {
-console.log("Viewing report for:", submissionId); 
+//===========================================================
+// FONCTIONS POUR LE RAPPORT - À AJOUTER À VOTRE SCRIPT
+//===========================================================
+
+// Fonction pour afficher le rapport dans la modale
+async function viewReport(studentId) {
     const modal = document.getElementById('reportModal');
     const reportContent = document.getElementById('reportContent');
-    const token = localStorage.getItem('professorToken'); // Utiliser le bon nom de token
+    // On utilise bien 'professorToken' comme dans le reste de votre code
+    const token = localStorage.getItem('professorToken'); 
 
-    reportContent.innerHTML = '<p>Chargement du rapport...</p>';
-    modal.style.display = 'flex'; // Afficher la modale
+    if (!token) {
+        alert('Votre session a expiré. Veuillez vous reconnecter.');
+        return;
+    }
+
+    // Affiche la modale avec un message de chargement
+    reportContent.innerHTML = '<p style="text-align:center; padding: 2rem;">Chargement du rapport...</p>';
+    // Dans votre HTML, la modale est cachée par défaut. On la rend visible.
+    // Assurez-vous que votre CSS fait en sorte que la classe 'visible' l'affiche.
+    // Ou utilisez : modal.style.display = 'flex'; si vous n'avez pas de classe 'visible'.
+    modal.classList.add('visible'); 
 
     try {
-        const response = await fetch(`/api/analysis/${submissionId}`, {
+        // Appelle la nouvelle route API que nous avons créée dans main.py
+        const response = await fetch(`/api/analysis/${studentId}`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
         if (!response.ok) {
-            throw new Error('Rapport non disponible ou erreur du serveur.');
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Impossible de charger le rapport.');
         }
 
-        const data = await response.json();
-        // On injecte directement le HTML reçu du serveur
-        reportContent.innerHTML = data.report_html;
+        const analysis = await response.json();
+        
+        // Injecte le contenu HTML du rapport reçu dans la modale
+        reportContent.innerHTML = analysis.report_html;
 
     } catch (error) {
-        console.error("Erreur chargement du rapport:", error);
-        reportContent.innerHTML = `<p style="color:red;">Impossible de charger le rapport : ${error.message}</p>`;
+        console.error('Erreur lors de la récupération du rapport:', error);
+        reportContent.innerHTML = `<p style="text-align:center; padding: 2rem; color:red;">${error.message}</p>`;
     }
 }
 
 // Fonction pour fermer la modale
 function closeReportModal() {
-    document.getElementById('reportModal').style.display = 'none';
-}
-
-// Bonus : fermer la modale si on clique en dehors
-window.onclick = function(event) {
-    const modal = document.getElementById('reportModal');
-    if (event.target == modal) {
-        modal.style.display = "none";
-    }
+    // On enlève la classe 'visible' pour la cacher à nouveau.
+    // Ou utilisez : document.getElementById('reportModal').style.display = 'none';
+    document.getElementById('reportModal').classList.remove('visible');
 }
 
         // Mise à jour des statistiques
