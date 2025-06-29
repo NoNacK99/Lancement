@@ -401,7 +401,7 @@ function closeReportModal() {
                                 </td>
                                 <td>
                                     ${student.status === 'completed' 
-                                        ? `<button class="action-btn" onclick="alert('ID: ' + ${student.id})">📋 Voir rapport</button>` 
+                                        ? `<button class="action-btn" onclick="viewReport('${student.id}')">📋 Voir rapport</button>` 
                                         : `<button class="action-btn secondary" onclick="viewStatus(${student.id})">👀 Statut</button>`}
                                 </td>
                             </tr>
