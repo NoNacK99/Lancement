@@ -86,7 +86,9 @@ class SubmissionResponse(BaseModel):
     submission_date: datetime
     file_name: Optional[str] = None
     score: Optional[int] = None
-
+# Ajoutez simplement ceci à la fin de votre section de modèles
+class AnalysisReportResponse(BaseModel):
+    report_html: str
 # ==========================================================
 # 4. FONCTIONS UTILITAIRES
 # ==========================================================
@@ -153,7 +155,39 @@ async def process_submission_with_ai(submission_id: str):
 # ==========================================================
 # 5. ROUTES API
 # ==========================================================
+# --- NOUVELLE ROUTE POUR LE RAPPORT D'ANALYSE ---
+@app.get("/api/analysis/{submission_id}", response_model=AnalysisReportResponse, tags=["Rapport d'Analyse"])
+async def get_analysis_report(
+    submission_id: str,
+    conn: AsyncConnection = Depends(get_db_connection),
+    professor_id: str = Depends(get_current_professor) # Route protégée
+):
+    """
+    Récupère le rapport d'analyse HTML pour une soumission spécifique.
+    Vérifie que la soumission appartient bien au professeur connecté.
+    """
+    try:
+        # 1. Sécurité : On vérifie que le professeur connecté a bien le droit de voir ce rapport
+        check_query = "SELECT id FROM submissions WHERE id = %s AND professor_id = %s"
+        cursor = await conn.execute(check_query, (submission_id, professor_id))
+        if not await cursor.fetchone():
+            raise HTTPException(status_code=404, detail="Rapport non trouvé ou accès non autorisé.")
 
+        # 2. On récupère le contenu du rapport depuis la table 'analyses'
+        report_query = "SELECT report_content FROM analyses WHERE submission_id = %s"
+        cursor = await conn.execute(report_query, (submission_id,))
+        report = await cursor.fetchone()
+        
+        if not report or not report[0]:
+            raise HTTPException(status_code=404, detail="Le rapport d'analyse n'est pas encore disponible.")
+            
+        return {"report_html": report[0]}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Erreur récupération du rapport pour {submission_id}: {e}")
+        raise HTTPException(status_code=500, detail="Erreur interne du serveur.")
 # --- A. ROUTES POUR SERVIR LES PAGES HTML ---
 @app.get("/", tags=["Pages HTML"])
 async def serve_student_page_at_root(request: Request):

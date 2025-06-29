@@ -69,6 +69,14 @@
     </style>
 </head>
 <body>
+    <div id="reportModal" class="modal" style="display:none;">
+  <div class="modal-content">
+    <span class="close-btn" onclick="closeReportModal()">&times;</span>
+    <div id="reportContent">
+      <!-- Le contenu du rapport HTML sera injecté ici -->
+    </div>
+  </div>
+</div>
     <div class="login-container" id="loginContainer">
         <div class="login-panel">
             <div class="login-header">
@@ -274,37 +282,46 @@ async function initializeDashboard() {
             studentsData = [];
         }
 
-        // Affichage du rapport
-        async function viewReport(studentId) {
-            try {
-                const token = localStorage.getItem('professorToken');
-                
-                if (!token) {
-                    const student = studentsData.find(s => s.id === studentId);
-                    if (!student) return;
-                    
-                    const reportContent = generateDetailedReport(student);
-                    document.getElementById('reportContent').innerHTML = reportContent;
-                    document.getElementById('reportModal').style.display = 'flex';
-                    return;
-                }
-                
-                const response = await fetch(`/submissions/${studentId}/analysis`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Rapport non disponible');
-                }
-                
-                const analysis = await response.json();
-                document.getElementById('reportContent').innerHTML = analysis.report_content;
-                document.getElementById('reportModal').style.display = 'flex';
-                
-            } catch (error) {
-                alert('Le rapport n\'est pas encore disponible. L\'analyse est peut-être encore en cours.');
-            }
+        // Fonction pour afficher le rapport dans la modale
+async function viewReport(submissionId) {
+    const modal = document.getElementById('reportModal');
+    const reportContent = document.getElementById('reportContent');
+    const token = localStorage.getItem('professorToken'); // Utiliser le bon nom de token
+
+    reportContent.innerHTML = '<p>Chargement du rapport...</p>';
+    modal.style.display = 'flex'; // Afficher la modale
+
+    try {
+        const response = await fetch(`/api/analysis/${submissionId}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+            throw new Error('Rapport non disponible ou erreur du serveur.');
         }
+
+        const data = await response.json();
+        // On injecte directement le HTML reçu du serveur
+        reportContent.innerHTML = data.report_html;
+
+    } catch (error) {
+        console.error("Erreur chargement du rapport:", error);
+        reportContent.innerHTML = `<p style="color:red;">Impossible de charger le rapport : ${error.message}</p>`;
+    }
+}
+
+// Fonction pour fermer la modale
+function closeReportModal() {
+    document.getElementById('reportModal').style.display = 'none';
+}
+
+// Bonus : fermer la modale si on clique en dehors
+window.onclick = function(event) {
+    const modal = document.getElementById('reportModal');
+    if (event.target == modal) {
+        modal.style.display = "none";
+    }
+}
 
         // Mise à jour des statistiques
         function updateStats() {
