@@ -150,497 +150,227 @@
     </div>
 
     <script>
-        // Variables globales
-        let studentsData = [];
-        let sortColumn = null;
-        let sortDirection = 'asc';
+    // ==========================================================
+    // VARIABLES GLOBALES
+    // ==========================================================
+    let studentsData = [];
+    let sortColumn = null;
+    let sortDirection = 'asc';
 
-        // Gestion de l'authentification
-        document.getElementById('loginForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
+    // ==========================================================
+    // GESTION DE L'AUTHENTIFICATION ET INITIALISATION
+    // ==========================================================
+
+    // Gère le formulaire de connexion
+    document.getElementById('loginForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        
+        try {
+            const response = await fetch('/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
             
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            
-            try {
-                const response = await fetch('/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
-                
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.detail || 'Email ou mot de passe incorrect');
-                }
-                
-                const data = await response.json();
-                
-                // Sauvegarder le token et les infos
-                localStorage.setItem('professorToken', data.access_token);
-                localStorage.setItem('professorInfo', JSON.stringify(data.professor || {}));
-                
-                // Mettre à jour l'interface
-                document.getElementById('loginContainer').style.display = 'none';
-                document.getElementById('dashboardContainer').style.display = 'block';
-                document.getElementById('professorName').textContent = data.professor?.name || email.split('@')[0];
-                document.getElementById('professorCourse').textContent = data.professor?.course || 'Entrepreneuriat';
-                
-                // Charger les données
-                await initializeDashboard();
-                
-            } catch (error) {
-                console.error('Erreur de connexion:', error);
-                alert('Erreur de connexion: ' + error.message);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Email ou mot de passe incorrect');
             }
-        });
+            
+            const data = await response.json();
+            
+            localStorage.setItem('professorToken', data.access_token);
+            localStorage.setItem('professorInfo', JSON.stringify(data.professor || {}));
+            
+            updateUIAfterLogin(data.professor);
+            await initializeDashboard();
+            
+        } catch (error) {
+            console.error('Erreur de connexion:', error);
+            alert('Erreur de connexion: ' + error.message);
+        }
+    });
 
-        // Initialisation du dashboard (Version corrigée)
-async function initializeDashboard() {
-    try {
-        // Étape 1 : On récupère le token (votre code est parfait)
-        const token = localStorage.getItem('professorToken');
-        if (!token) {
-            console.error('Pas de token d\'authentification');
-            logout(); // On appelle votre fonction de déconnexion
-            return;
-        }
-        
-        // Étape 2 : On va chercher les données sur le serveur (votre code est parfait)
-        const response = await fetch('/api/professor/dashboard', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        
-        if (!response.ok) {
-            throw new Error('Erreur lors du chargement des données depuis le serveur');
-        }
-        
-        // Notre backend renvoie une liste directe. On la récupère.
-        const submissionsFromServer = await response.json();
-        
-        // Étape 3 (LA CORRECTION CLÉ) : On "traduit" les données reçues
-        // pour qu'elles correspondent à ce que le reste de votre code attend.
-        studentsData = submissionsFromServer.map(submission => ({
-            id: submission.id,
-            name: submission.student_name,         // On traduit student_name -> name
-            email: submission.student_email,
-            project: submission.project_title,     // On traduit project_title -> project
-            status: submission.status,
-            submissionDate: submission.submission_date,
-            score: submission.score,
-            lastActivity: submission.submission_date // Simplifié pour le moment
-        }));
-        
-        // Étape 4 : Maintenant que `studentsData` est correct, on appelle VOS fonctions
-        updateStats();
-        renderStudentsTable();
-        setupEventListeners(); // C'est une bonne pratique de relancer ceci
-        
-    } catch (error) {
-        console.error('Erreur lors du chargement du dashboard:', error);
-        // On garde votre logique de fallback qui est excellente
-        loadDemoData(); 
+    // Met à jour l'interface après une connexion réussie
+    function updateUIAfterLogin(professorInfo) {
+        document.getElementById('loginContainer').style.display = 'none';
+        document.getElementById('dashboardContainer').style.display = 'block';
+        document.getElementById('professorName').textContent = professorInfo?.name || 'Professeur';
+        document.getElementById('professorCourse').textContent = professorInfo?.course || 'Entrepreneuriat';
     }
-}
 
-        // Chargement des données de démonstration
-        function loadDemoData() {
-            studentsData = [
-                {
-                    id: 1,
-                    name: "TEST Étudiant",
-                    email: "2ee3e@student.com",
-                    project: "TEST",
-                    status: "pending",
-                    submissionDate: new Date().toISOString(),
-                    score: null,
-                    lastActivity: new Date().toISOString()
-                }
-            ];
+    // Fonction principale qui charge les données du tableau de bord
+    async function initializeDashboard() {
+        const container = document.getElementById('studentsTableContainer');
+        try {
+            const token = localStorage.getItem('professorToken');
+            if (!token) {
+                logout();
+                return;
+            }
+            
+            const response = await fetch('/api/professor/dashboard', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (!response.ok) throw new Error('Erreur lors du chargement des données');
+            
+            const submissionsFromServer = await response.json();
+            
+            // On "traduit" les données du serveur pour qu'elles correspondent à votre variable `studentsData`
+            studentsData = submissionsFromServer.map(submission => ({
+                id: submission.id,
+                name: submission.student_name,
+                email: submission.student_email,
+                project: submission.project_title,
+                status: submission.status,
+                submissionDate: submission.submission_date,
+                score: submission.score,
+                lastActivity: submission.submission_date 
+            }));
+            
             updateStats();
             renderStudentsTable();
             setupEventListeners();
-        }
-
-        // Déconnexion
-        function logout() {
-            localStorage.removeItem('professorToken');
-            localStorage.removeItem('professorInfo');
             
-            document.getElementById('loginContainer').style.display = 'flex';
-            document.getElementById('dashboardContainer').style.display = 'none';
-            document.getElementById('loginForm').reset();
-            
-            studentsData = [];
+        } catch (error) {
+            console.error('Erreur lors du chargement du dashboard:', error);
+            container.innerHTML = `<div class="empty-state"><h3>Erreur de chargement</h3><p>${error.message}</p></div>`;
         }
-
-//===========================================================
-// FONCTIONS POUR LE RAPPORT - À AJOUTER À VOTRE SCRIPT
-//===========================================================
-
-// Fonction pour afficher le rapport dans la modale
-async function viewReport(studentId) {
-    const modal = document.getElementById('reportModal');
-    const reportContent = document.getElementById('reportContent');
-    // On utilise bien 'professorToken' comme dans le reste de votre code
-    const token = localStorage.getItem('professorToken'); 
-
-    if (!token) {
-        alert('Votre session a expiré. Veuillez vous reconnecter.');
-        return;
     }
 
-    // Affiche la modale avec un message de chargement
-    reportContent.innerHTML = '<p style="text-align:center; padding: 2rem;">Chargement du rapport...</p>';
-    // Dans votre HTML, la modale est cachée par défaut. On la rend visible.
-    // Assurez-vous que votre CSS fait en sorte que la classe 'visible' l'affiche.
-    // Ou utilisez : modal.style.display = 'flex'; si vous n'avez pas de classe 'visible'.
-    modal.classList.add('visible'); 
+    // ==========================================================
+    // GESTION DES RAPPORTS ET DE LA MODALE
+    // ==========================================================
 
-    try {
-        // Appelle la nouvelle route API que nous avons créée dans main.py
-        const response = await fetch(`/api/analysis/${studentId}`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Impossible de charger le rapport.');
+    // Affiche le rapport d'analyse dans la modale
+    async function viewReport(studentId) {
+        const token = localStorage.getItem('professorToken');
+        if (!token) {
+            alert("Session expirée, veuillez vous reconnecter.");
+            return;
         }
 
-        const analysis = await response.json();
+        const reportModal = document.getElementById('reportModal');
+        const reportContent = document.getElementById('reportContent');
         
-        // Injecte le contenu HTML du rapport reçu dans la modale
-        reportContent.innerHTML = analysis.report_html;
+        reportContent.innerHTML = '<div style="text-align:center; padding: 2rem;">Chargement du rapport...</div>';
+        reportModal.style.display = 'flex';
 
-    } catch (error) {
-        console.error('Erreur lors de la récupération du rapport:', error);
-        reportContent.innerHTML = `<p style="text-align:center; padding: 2rem; color:red;">${error.message}</p>`;
+        try {
+            const response = await fetch(`/api/analysis/${studentId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.detail || 'Impossible de charger le rapport.');
+            }
+            const analysis = await response.json();
+            reportContent.innerHTML = analysis.report_html;
+        } catch (error) {
+            console.error("Erreur chargement du rapport:", error);
+            reportContent.innerHTML = `<div style="text-align:center; padding: 2rem; color:red;">${error.message}</div>`;
+        }
     }
-}
 
-// Fonction pour fermer la modale
-function closeReportModal() {
-    // On enlève la classe 'visible' pour la cacher à nouveau.
-    // Ou utilisez : document.getElementById('reportModal').style.display = 'none';
-    document.getElementById('reportModal').classList.remove('visible');
-}
+    // Affiche une alerte pour les statuts en cours
+    function viewStatus(studentId) {
+        const student = studentsData.find(s => s.id === studentId);
+        if (student) {
+            alert(`⏳ Statut de l'analyse\n\nÉtudiant: ${student.name}\nProjet: ${student.project}\n\nL'analyse par IA est en cours. Le rapport sera disponible dans quelques minutes.`);
+        }
+    }
 
-        // Mise à jour des statistiques
-        function updateStats() {
-            const completed = studentsData.filter(s => s.status === 'completed').length;
-            const processing = studentsData.filter(s => s.status === 'processing').length;
-            const pending = studentsData.filter(s => s.status === 'pending').length;
-            const total = studentsData.length;
-            
-            const completedWithScore = studentsData.filter(s => s.status === 'completed' && s.score);
-            const averageScore = completedWithScore.length > 0 
-                ? Math.round(completedWithScore.reduce((sum, s) => sum + s.score, 0) / completedWithScore.length) 
-                : 0;
+    // Ferme la modale du rapport
+    function closeReportModal() {
+        document.getElementById('reportModal').style.display = 'none';
+    }
 
-            document.getElementById('totalSubmissions').textContent = total;
-            document.getElementById('completedAnalyses').textContent = completed;
-            document.getElementById('pendingAnalyses').textContent = processing + pending;
-            document.getElementById('averageScore').textContent = averageScore;
+    // ==========================================================
+    // FONCTIONS UTILITAIRES (RENDU, TRI, FILTRE, ETC.)
+    // ==========================================================
+
+    function updateStats() {
+        const completed = studentsData.filter(s => s.status === 'completed').length;
+        const processingOrPending = studentsData.filter(s => s.status === 'processing' || s.status === 'pending').length;
+        const total = studentsData.length;
+        const completedWithScore = studentsData.filter(s => s.status === 'completed' && typeof s.score === 'number');
+        const averageScore = completedWithScore.length > 0 
+            ? Math.round(completedWithScore.reduce((sum, s) => sum + s.score, 0) / completedWithScore.length) 
+            : 0;
+        document.getElementById('totalSubmissions').textContent = total;
+        document.getElementById('completedAnalyses').textContent = completed;
+        document.getElementById('pendingAnalyses').textContent = processingOrPending;
+        document.getElementById('averageScore').textContent = averageScore;
+    }
+
+    function renderStudentsTable(data = null) {
+        const displayData = data || studentsData;
+        const container = document.getElementById('studentsTableContainer');
+        
+        if (displayData.length === 0) {
+            container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><h3>Aucune soumission pour le moment</h3><p>Les soumissions des étudiants apparaîtront ici.</p></div>`;
+            return;
         }
 
-        // Rendu du tableau
-        function renderStudentsTable(data = null) {
-            const displayData = data || studentsData;
-            const container = document.getElementById('studentsTableContainer');
-            
-            if (displayData.length === 0) {
-                container.innerHTML = `
-                    <div class="empty-state">
-                        <div class="empty-state-icon">📭</div>
-                        <h3>Aucune soumission pour le moment</h3>
-                        <p>Les soumissions des étudiants apparaîtront ici.</p>
-                    </div>`;
-                return;
-            }
-
-            const tableHTML = `
-                <table class="students-table">
-                    <thead>
+        const tableHTML = `
+            <table class="students-table">
+                <thead>
+                    <tr>
+                        <th class="sortable-header" onclick="sortTable('name')">👤 Étudiant ${getSortIcon('name')}</th>
+                        <th>📋 Projet</th>
+                        <th class="sortable-header" onclick="sortTable('date')">📅 Soumission ${getSortIcon('date')}</th>
+                        <th>📊 Statut</th>
+                        <th>🎯 Score</th>
+                        <th>⚙️ Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${displayData.map(student => `
                         <tr>
-                            <th class="sortable-header" onclick="sortTable('name')">
-                                👤 Étudiant ${getSortIcon('name')}
-                            </th>
-                            <th>📋 Projet</th>
-                            <th class="sortable-header" onclick="sortTable('date')">
-                                📅 Soumission ${getSortIcon('date')}
-                            </th>
-                            <th>📊 Statut</th>
-                            <th>🎯 Score</th>
-                            <th>⚙️ Actions</th>
+                            <td>
+                                <div style="font-weight: 600;">${student.name}</div>
+                                <div style="font-size: 0.85em; color: #666;">${student.email}</div>
+                            </td>
+                            <td><div style="font-weight: 500; max-width: 250px; line-height: 1.4;">${student.project}</div></td>
+                            <td>
+                                <div>${formatDate(student.submissionDate)}</div>
+                                <div style="font-size: 0.85em; color: #666;">${formatTime(student.submissionDate)}</div>
+                            </td>
+                            <td><span class="status-badge status-${student.status}">${getStatusText(student.status)}</span></td>
+                            <td>${student.score !== null ? `<span style="font-weight: 700; color: #4facfe; font-size: 1.1em;">${student.score}/100</span>` : '<span style="color: #999;">En attente</span>'}</td>
+                            <td>${student.status === 'completed' ? `<button class="action-btn" onclick="viewReport('${student.id}')">📋 Voir rapport</button>` : `<button class="action-btn secondary" onclick="viewStatus('${student.id}')">👀 Statut</button>`}</td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        ${displayData.map(student => `
-                            <tr>
-                                <td>
-                                    <div style="font-weight: 600;">${student.name}</div>
-                                    <div style="font-size: 0.85em; color: #666;">${student.email}</div>
-                                </td>
-                                <td>
-                                    <div style="font-weight: 500; max-width: 250px; line-height: 1.4;">
-                                        ${student.project}
-                                    </div>
-                                </td>
-                                <td>
-                                    <div>${formatDate(student.submissionDate)}</div>
-                                    <div style="font-size: 0.85em; color: #666;">
-                                        ${formatTime(student.submissionDate)}
-                                    </div>
-                                </td>
-                                <td>
-                                    <span class="status-badge status-${student.status}">
-                                        ${getStatusText(student.status)}
-                                    </span>
-                                </td>
-                                <td>
-                                    ${student.score 
-                                        ? `<span style="font-weight: 700; color: #4facfe; font-size: 1.1em;">${student.score}/100</span>` 
-                                        : '<span style="color: #999;">En attente</span>'}
-                                </td>
-                                <td>
-                                    ${student.status === 'completed' 
-                                        ? `<button class="action-btn" onclick="viewReport(${student.id})">📋 Voir rapport</button>` 
-                                        : `<button class="action-btn secondary" onclick="viewStatus(${student.id})">👀 Statut</button>`}
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>`;
-            
-            container.innerHTML = tableHTML;
+                    `).join('')}
+                </tbody>
+            </table>`;
+        container.innerHTML = tableHTML;
+    }
+
+    // --- Fonctions helpers (vos fonctions existantes) ---
+    function getSortIcon(column) { if (sortColumn !== column) return '↕️'; return sortDirection === 'asc' ? '▲' : '▼'; }
+    function sortTable(column) { if (sortColumn === column) { sortDirection = sortDirection === 'asc' ? 'desc' : 'asc'; } else { sortColumn = column; sortDirection = 'asc'; } let sortedData = [...getFilteredData()]; if (column === 'name') { sortedData.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()) * (sortDirection === 'asc' ? 1 : -1)); } else if (column === 'date') { sortedData.sort((a, b) => (new Date(a.submissionDate) - new Date(b.submissionDate)) * (sortDirection === 'asc' ? 1 : -1)); } renderStudentsTable(sortedData); }
+    function getFilteredData() { let filtered = [...studentsData]; const searchQuery = document.getElementById('searchBox').value.toLowerCase(); if (searchQuery) { filtered = filtered.filter(s => s.name.toLowerCase().includes(searchQuery) || s.email.toLowerCase().includes(searchQuery) || s.project.toLowerCase().includes(searchQuery)); } const statusFilter = document.getElementById('statusFilter').value; if (statusFilter && statusFilter !== 'all') { filtered = filtered.filter(s => s.status === statusFilter); } return filtered; }
+    function setupEventListeners() { document.getElementById('searchBox').addEventListener('input', () => renderStudentsTable(getFilteredData())); document.getElementById('statusFilter').addEventListener('change', () => renderStudentsTable(getFilteredData())); document.getElementById('logoutButton').addEventListener('click', logout); document.getElementById('exportCsvBtn').addEventListener('click', exportToCSV); document.getElementById('reportModal').addEventListener('click', (e) => { if (e.target === e.currentTarget) closeReportModal(); }); }
+    function formatDate(d) { return new Date(d).toLocaleDateString('fr-CA'); }
+    function formatTime(d) { return new Date(d).toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' }); }
+    function getStatusText(status) { const map = { 'completed': '✅ Terminé', 'processing': '⏳ En cours', 'pending': '⏸️ En attente', 'error': '❌ Erreur'}; return map[status] || status; }
+    function exportToCSV() { const headers = ['Nom', 'Email', 'Projet', 'Date Soumission', 'Statut', 'Score']; const csvData = [headers.join(',')]; studentsData.forEach(s => { const row = [`"${s.name}"`, `"${s.email}"`, `"${s.project}"`, `"${s.submissionDate}"`, `"${getStatusText(s.status)}"`, s.score || 'N/A']; csvData.push(row.join(',')); }); const blob = new Blob([csvData.join('\n')], { type: 'text/csv;charset=utf-8;' }); const link = document.createElement("a"); const url = URL.createObjectURL(blob); link.setAttribute("href", url); link.setAttribute("download", `export_plans_affaires_${new Date().toISOString().split('T')[0]}.csv`); link.style.visibility = 'hidden'; document.body.appendChild(link); link.click(); document.body.removeChild(link); }
+
+    // ==========================================================
+    // POINT D'ENTRÉE AU CHARGEMENT DE LA PAGE
+    // ==========================================================
+    window.addEventListener('load', function() {
+        const token = localStorage.getItem('professorToken');
+        if (token) {
+            const professorInfo = JSON.parse(localStorage.getItem('professorInfo') || '{}');
+            updateUIAfterLogin(professorInfo);
+            initializeDashboard();
         }
+    });
+</script>
 
-        // Icône de tri
-        function getSortIcon(column) {
-            if (sortColumn !== column) return '↕️';
-            return sortDirection === 'asc' ? '▲' : '▼';
-        }
-
-        // Tri du tableau
-        function sortTable(column) {
-            if (sortColumn === column) {
-                sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
-            } else {
-                sortColumn = column;
-                sortDirection = 'asc';
-            }
-            
-            let sortedData = [...getFilteredData()];
-            
-            if (column === 'name') {
-                sortedData.sort((a, b) => {
-                    const comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase());
-                    return sortDirection === 'asc' ? comparison : -comparison;
-                });
-            } else if (column === 'date') {
-                sortedData.sort((a, b) => {
-                    const dateA = new Date(a.submissionDate);
-                    const dateB = new Date(b.submissionDate);
-                    const comparison = dateA - dateB;
-                    return sortDirection === 'asc' ? comparison : -comparison;
-                });
-            }
-            
-            renderStudentsTable(sortedData);
-        }
-
-        // Filtrage des données
-        function getFilteredData() {
-            let filtered = [...studentsData];
-            
-            const searchQuery = document.getElementById('searchBox').value.toLowerCase();
-            if (searchQuery) {
-                filtered = filtered.filter(student => 
-                    student.name.toLowerCase().includes(searchQuery) ||
-                    student.email.toLowerCase().includes(searchQuery) ||
-                    student.project.toLowerCase().includes(searchQuery)
-                );
-            }
-            
-            const statusFilter = document.getElementById('statusFilter').value;
-            if (statusFilter !== 'all') {
-                filtered = filtered.filter(s => s.status === statusFilter);
-            }
-            
-            return filtered;
-        }
-
-        // Configuration des événements
-        function setupEventListeners() {
-            document.getElementById('searchBox').addEventListener('input', function() {
-                renderStudentsTable(getFilteredData());
-            });
-            
-            document.getElementById('statusFilter').addEventListener('change', function() {
-                renderStudentsTable(getFilteredData());
-            });
-        }
-
-        // Formatage de la date
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleDateString('fr-CA');
-        }
-
-        // Formatage de l'heure
-        function formatTime(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleTimeString('fr-CA', { hour: '2-digit', minute: '2-digit' });
-        }
-
-        // Texte du statut
-        function getStatusText(status) {
-            const statusMap = {
-                'completed': '✅ Terminé',
-                'processing': '⏳ En cours',
-                'pending': '⏸️ En attente'
-            };
-            return statusMap[status] || status;
-        }
-
-        // Génération du rapport détaillé
-        function generateDetailedReport(student) {
-            return `
-                <div style="margin-bottom: 30px;">
-                    <h3 style="margin-bottom: 15px;">📋 Informations du Projet</h3>
-                    <div style="background: #f8f9fa; padding: 20px; border-radius: 12px;">
-                        <div style="margin-bottom: 10px;"><strong>Étudiant:</strong> ${student.name}</div>
-                        <div style="margin-bottom: 10px;"><strong>Email:</strong> ${student.email}</div>
-                        <div style="margin-bottom: 10px;"><strong>Projet:</strong> ${student.project}</div>
-                        <div style="margin-bottom: 10px;">
-                            <strong>Date de soumission:</strong> ${formatDate(student.submissionDate)} à ${formatTime(student.submissionDate)}
-                        </div>
-                        <div>
-                            <strong>Score global:</strong> 
-                            <span style="color: #4facfe; font-weight: 700; font-size: 1.2em;">
-                                ${student.score || 'En attente'}/100
-                            </span>
-                        </div>
-                    </div>
-                </div>
-                
-                ${student.score ? `
-                    <div class="quick-stats">
-                        <div class="quick-stat">
-                            <div class="quick-stat-number">16/20</div>
-                            <div class="quick-stat-label">Viabilité Concept</div>
-                        </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-number">14/20</div>
-                            <div class="quick-stat-label">Étude Marché</div>
-                        </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-number">15/20</div>
-                            <div class="quick-stat-label">Modèle Économique</div>
-                        </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-number">13/20</div>
-                            <div class="quick-stat-label">Stratégie Marketing</div>
-                        </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-number">12/20</div>
-                            <div class="quick-stat-label">Projections Financières</div>
-                        </div>
-                        <div class="quick-stat">
-                            <div class="quick-stat-number">12/20</div>
-                            <div class="quick-stat-label">Gestion Risques</div>
-                        </div>
-                    </div>
-                    
-                    <div style="margin: 30px 0;">
-                        <h3 style="margin-bottom: 15px;">🎯 Résumé Exécutif</h3>
-                        <div style="background: #f0f6ff; padding: 20px; border-radius: 12px; border-left: 4px solid #4facfe;">
-                            <p style="line-height: 1.6; color: #333;">
-                                Ce plan d'affaires présente un projet prometteur avec un potentiel commercial intéressant. 
-                                L'analyse révèle des forces notables dans la conception du produit/service et l'identification 
-                                du marché cible. Certains aspects nécessitent cependant un approfondissement pour maximiser 
-                                les chances de succès.
-                            </p>
-                        </div>
-                    </div>
-                    
-                    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 16px; text-align: center; margin-top: 30px;">
-                        <h3 style="margin-bottom: 10px;">✅ Évaluation Terminée</h3>
-                        <p style="opacity: 0.9;">
-                            Rapport généré automatiquement par IA<br>
-                            Analyse complétée le ${formatDate(student.lastActivity)} à ${formatTime(student.lastActivity)}
-                        </p>
-                    </div>
-                ` : `
-                    <div style="text-align: center; padding: 40px;">
-                        <div style="font-size: 4em; margin-bottom: 20px;">⏳</div>
-                        <h3>Analyse en cours...</h3>
-                        <p style="color: #666;">Le rapport sera disponible une fois l'analyse terminée.</p>
-                    </div>
-                `}`;
-        }
-
-        // Fermeture de la modal
-        function closeReportModal() {
-            document.getElementById('reportModal').style.display = 'none';
-        }
-
-        // Affichage du statut
-        function viewStatus(studentId) {
-            const student = studentsData.find(s => s.id === studentId);
-            if (student) {
-                alert(`⏳ Statut de l'analyse\n\nÉtudiant: ${student.name}\nProjet: ${student.project}\n\nL'analyse par IA est en cours. Le rapport sera disponible dans quelques minutes.`);
-            }
-        }
-
-        // Export CSV
-        function exportToCSV() {
-            const headers = ['Nom', 'Email', 'Projet', 'Date Soumission', 'Statut', 'Score'];
-            const csvData = [headers.join(',')];
-            
-            studentsData.forEach(student => {
-                const row = [
-                    `"${student.name}"`,
-                    `"${student.email}"`,
-                    `"${student.project}"`,
-                    `"${student.submissionDate}"`,
-                    `"${getStatusText(student.status)}"`,
-                    student.score || 'En attente'
-                ];
-                csvData.push(row.join(','));
-            });
-            
-            const blob = new Blob([csvData.join('\n')], { type: 'text/csv' });
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `plans_affaires_${new Date().toISOString().split('T')[0]}.csv`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-            
-            alert('📊 Export CSV téléchargé avec succès !');
-        }
-
-        // Gestion du clic sur la modal
-        document.getElementById('reportModal').addEventListener('click', function(e) {
-            if (e.target === this) {
-                closeReportModal();
-            }
-        });
-
-        // Vérifier si déjà connecté au chargement
-        window.addEventListener('load', function() {
-            const token = localStorage.getItem('professorToken');
-            if (token) {
-                const professorInfo = JSON.parse(localStorage.getItem('professorInfo') || '{}');
-                document.getElementById('loginContainer').style.display = 'none';
-                document.getElementById('dashboardContainer').style.display = 'block';
-                document.getElementById('professorName').textContent = professorInfo.name || 'Professeur';
-                document.getElementById('professorCourse').textContent = professorInfo.course || 'Entrepreneuriat';
-                initializeDashboard();
-            }
-        });
-    </script>
 </body>
 </html>
