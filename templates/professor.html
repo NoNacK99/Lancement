@@ -276,6 +276,7 @@ async function initializeDashboard() {
 
         // Fonction pour afficher le rapport dans la modale
 async function viewReport(submissionId) {
+console.log("Viewing report for:", submissionId); 
     const modal = document.getElementById('reportModal');
     const reportContent = document.getElementById('reportContent');
     const token = localStorage.getItem('professorToken'); // Utiliser le bon nom de token
