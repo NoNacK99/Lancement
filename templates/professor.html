@@ -195,54 +195,53 @@
             }
         });
 
-        // Initialisation du dashboard
-        async function initializeDashboard() {
-            try {
-                const token = localStorage.getItem('professorToken');
-                
-                if (!token) {
+        // Initialisation du dashboard (Version corrigée)
+async function initializeDashboard() {
+    try {
+        // Étape 1 : On récupère le token (votre code est parfait)
+        const token = localStorage.getItem('professorToken');
+        if (!token) {
             console.error('Pas de token d\'authentification');
-            alert('Veuillez vous reconnecter');
-            logout();
+            logout(); // On appelle votre fonction de déconnexion
             return;
         }
-                
-                const response = await fetch('/api/professor/dashboard', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                
-                if (!response.ok) {
-                    throw new Error('Erreur lors du chargement des données');
-                }
-                
-                const data = await response.json();
-                
-                // Mettre à jour les statistiques
-                document.getElementById('totalSubmissions').textContent = data.stats?.total_submissions || 0;
-                document.getElementById('completedAnalyses').textContent = data.stats?.completed_analyses || 0;
-                document.getElementById('pendingAnalyses').textContent = data.stats?.processing || 0;
-                document.getElementById('averageScore').textContent = data.stats?.average_score || 0;
-                
-                // Charger les soumissions
-                studentsData = data.submissions?.map(submission => ({
-                    id: submission.id,
-                    name: submission.student_name,
-                    email: submission.student_email,
-                    project: submission.project_title,
-                    status: submission.status,
-                    submissionDate: submission.submission_date,
-                    score: submission.score,
-                    lastActivity: submission.analysis_completed_at || submission.submission_date
-                })) || [];
-                
-                renderStudentsTable();
-                setupEventListeners();
-                
-            } catch (error) {
-                console.error('Erreur lors du chargement du dashboard:', error);
-                loadDemoData();
-            }
+        
+        // Étape 2 : On va chercher les données sur le serveur (votre code est parfait)
+        const response = await fetch('/api/professor/dashboard', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Erreur lors du chargement des données depuis le serveur');
         }
+        
+        // Notre backend renvoie une liste directe. On la récupère.
+        const submissionsFromServer = await response.json();
+        
+        // Étape 3 (LA CORRECTION CLÉ) : On "traduit" les données reçues
+        // pour qu'elles correspondent à ce que le reste de votre code attend.
+        studentsData = submissionsFromServer.map(submission => ({
+            id: submission.id,
+            name: submission.student_name,         // On traduit student_name -> name
+            email: submission.student_email,
+            project: submission.project_title,     // On traduit project_title -> project
+            status: submission.status,
+            submissionDate: submission.submission_date,
+            score: submission.score,
+            lastActivity: submission.submission_date // Simplifié pour le moment
+        }));
+        
+        // Étape 4 : Maintenant que `studentsData` est correct, on appelle VOS fonctions
+        updateStats();
+        renderStudentsTable();
+        setupEventListeners(); // C'est une bonne pratique de relancer ceci
+        
+    } catch (error) {
+        console.error('Erreur lors du chargement du dashboard:', error);
+        // On garde votre logique de fallback qui est excellente
+        loadDemoData(); 
+    }
+}
 
         // Chargement des données de démonstration
         function loadDemoData() {
