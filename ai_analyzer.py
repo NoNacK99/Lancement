@@ -80,7 +80,7 @@ async def extract_text_from_file(file_url: str) -> str:
     return text
 
 # ==========================================================
-# 3. ANALYSE IA (Inchangée)
+# 3. ANALYSE IA (MISE À JOUR AVEC VALIDATION)
 # ==========================================================
 async def analyze_business_plan(text: str, student_name: str, project_title: str) -> Dict[str, Any]:
     """Analyser un plan d'affaires avec GPT-3.5-turbo (économique)"""
@@ -88,23 +88,44 @@ async def analyze_business_plan(text: str, student_name: str, project_title: str
     if len(words) > 3000:
         text = ' '.join(words[:3000]) + "\n\n[Document tronqué pour l'analyse]"
     
+    # NOUVEAU PROMPT AMÉLIORÉ
     system_prompt = """Tu es un expert en évaluation de plans d'affaires académiques.
-Analyse le plan et retourne UNIQUEMENT un JSON valide avec cette structure exacte:
+
+ÉTAPE 1 - VALIDATION : Vérifie d'abord si le document est un plan d'affaires valide.
+Un plan d'affaires DOIT contenir au minimum :
+- Une description du produit/service
+- Une analyse de marché ou clientèle cible
+- Un modèle économique ou stratégie de revenus
+
+Si le document n'est PAS un plan d'affaires (ex: recette, histoire, devoir non pertinent), retourne :
 {
-    "resume_executif": "résumé en 2-3 phrases",
-    "score_global": "nombre entre 0 et 100",
-    "scores": {
-        "viabilite_concept": "nombre entre 0 et 20",
-        "etude_marche": "nombre entre 0 et 20",
-        "modele_economique": "nombre entre 0 et 20",
-        "strategie_marketing": "nombre entre 0 et 20",
-        "projections_financieres": "nombre entre 0 et 20"
-    },
-    "points_forts": ["point 1", "point 2", "point 3"],
-    "axes_amelioration": ["axe 1", "axe 2", "axe 3"],
-    "recommandations": ["reco 1", "reco 2", "reco 3"]
+    "document_valide": false,
+    "raison_rejet": "Ce document n'est pas un plan d'affaires. [Explique pourquoi]",
+    "score_global": 0
 }
-Sois concis mais constructif."""
+
+ÉTAPE 2 - ANALYSE : Si c'est un plan d'affaires valide, analyse-le et retourne :
+{
+    "document_valide": true,
+    "resume_executif": "résumé objectif en 2-3 phrases",
+    "score_global": nombre entre 0 et 100 (sois exigeant, moyenne = 50-60),
+    "scores": {
+        "viabilite_concept": nombre entre 0 et 20 (0 si absent, note selon qualité),
+        "etude_marche": nombre entre 0 et 20 (0 si aucune analyse marché),
+        "modele_economique": nombre entre 0 et 20 (0 si aucun modèle de revenus),
+        "strategie_marketing": nombre entre 0 et 20 (0 si absente),
+        "projections_financieres": nombre entre 0 et 20 (0 si absentes)
+    },
+    "completude": "pourcentage des sections présentes (0-100%)",
+    "points_forts": ["maximum 3 points spécifiques au document"],
+    "axes_amelioration": ["maximum 3 axes concrets"],
+    "recommandations": ["maximum 3 actions prioritaires"]
+}
+
+IMPORTANT : 
+- Sois STRICT sur les scores. Un document incomplet < 40/100
+- Note 0 les sections totalement absentes
+- Retourne UNIQUEMENT le JSON, aucun autre texte"""
     
     user_prompt = f"Plan d'affaires de {student_name} - Projet: {project_title}\n\n{text}\n\nFournis l'analyse JSON."
     
@@ -121,38 +142,125 @@ Sois concis mais constructif."""
         )
         analysis = json.loads(response.choices[0].message.content)
         
-        if 'scores' not in analysis: analysis['scores'] = {}
-        default_scores = {'viabilite_concept': 10, 'etude_marche': 10, 'modele_economique': 10, 'strategie_marketing': 10, 'projections_financieres': 10}
-        for key, default in default_scores.items():
-            if key not in analysis['scores']: analysis['scores'][key] = default
+        # Vérifier si le document est valide
+        if not analysis.get('document_valide', True):
+            # Document rejeté
+            return {
+                "document_valide": False,
+                "raison_rejet": analysis.get('raison_rejet', 'Document non conforme'),
+                "score_global": 0,
+                "scores": {
+                    "viabilite_concept": 0,
+                    "etude_marche": 0,
+                    "modele_economique": 0,
+                    "strategie_marketing": 0,
+                    "projections_financieres": 0
+                },
+                "resume_executif": analysis.get('raison_rejet', 'Document rejeté'),
+                "points_forts": [],
+                "axes_amelioration": ["Document non conforme aux exigences d'un plan d'affaires"],
+                "recommandations": ["Soumettre un véritable plan d'affaires"]
+            }
         
+        # Document valide - continuer avec le traitement normal
+        if 'scores' not in analysis: 
+            analysis['scores'] = {}
+        
+        default_scores = {
+            'viabilite_concept': 10, 
+            'etude_marche': 10, 
+            'modele_economique': 10, 
+            'strategie_marketing': 10, 
+            'projections_financieres': 10
+        }
+        
+        for key, default in default_scores.items():
+            if key not in analysis['scores']: 
+                analysis['scores'][key] = default
+        
+        # Convertir les scores en entiers
         for key, value in analysis['scores'].items():
             try:
                 analysis['scores'][key] = int(value)
             except (ValueError, TypeError):
-                analysis['scores'][key] = default_scores[key]
+                analysis['scores'][key] = 0  # 0 si erreur de conversion
 
-        if 'score_global' not in analysis or not isinstance(analysis.get('score_global'), int):
-             total = sum(analysis['scores'].values())
-             analysis['score_global'] = int(total)
+        # Calculer le score global si absent
+        if 'score_global' not in analysis:
+            total = sum(analysis['scores'].values())
+            analysis['score_global'] = int(total)
+        else:
+            try:
+                analysis['score_global'] = int(analysis['score_global'])
+            except:
+                analysis['score_global'] = sum(analysis['scores'].values())
 
         return analysis
         
     except Exception as e:
         print(f"Erreur OpenAI: {e}")
-        return {"error": str(e), "resume_executif": "Erreur lors de l'analyse auto.", "score_global": 60, "scores": default_scores, "points_forts": [], "axes_amelioration": [], "recommandations": []}
+        return {
+            "document_valide": True,
+            "error": str(e), 
+            "resume_executif": "Erreur lors de l'analyse automatique.", 
+            "score_global": 50, 
+            "scores": default_scores, 
+            "points_forts": ["Analyse non disponible"], 
+            "axes_amelioration": ["Analyse non disponible"], 
+            "recommandations": ["Réessayer l'analyse"]
+        }
 
 # ==========================================================
-# 4. GÉNÉRATION DU RAPPORT (Inchangée)
+# 4. GÉNÉRATION DU RAPPORT (MISE À JOUR POUR GÉRER LES REJETS)
 # ==========================================================
 def generate_formatted_report(analysis: Dict[str, Any], student_name: str, project_title: str, processing_time: int) -> str:
     """Générer un rapport HTML formaté"""
+    
+    # Vérifier si le document a été rejeté
+    if not analysis.get('document_valide', True):
+        return f"""
+        <div style="font-family: 'Inter', -apple-system, sans-serif; line-height: 1.6; color: #333;">
+            <div style="background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%); color: white; padding: 30px; border-radius: 16px; margin-bottom: 30px; text-align: center;">
+                <h1 style="margin: 0 0 10px 0;">❌ Document Non Valide</h1>
+                <p style="margin: 0; opacity: 0.9;">Ce document n'est pas un plan d'affaires</p>
+            </div>
+            <div style="background: #ffebee; padding: 25px; border-radius: 12px; margin-bottom: 25px; border-left: 4px solid #f44336;">
+                <h2 style="color: #c62828; margin-top: 0;">🚫 Raison du Rejet</h2>
+                <p style="margin: 0; font-size: 1.1em;">{analysis.get('raison_rejet', 'Document non conforme aux exigences')}</p>
+            </div>
+            <div style="background: #f8f9fa; padding: 25px; border-radius: 12px; margin-bottom: 25px;">
+                <h2 style="color: #333; margin-top: 0;">📋 Informations de la Soumission</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                    <tr><td style="padding: 8px 0;"><strong>Étudiant:</strong></td><td style="padding: 8px 0;">{student_name}</td></tr>
+                    <tr><td style="padding: 8px 0;"><strong>Titre du projet:</strong></td><td style="padding: 8px 0;">{project_title}</td></tr>
+                    <tr><td style="padding: 8px 0;"><strong>Date:</strong></td><td style="padding: 8px 0;">{datetime.now().strftime('%d/%m/%Y à %H:%M')}</td></tr>
+                    <tr><td style="padding: 8px 0;"><strong>Score:</strong></td><td style="padding: 8px 0;"><span style="font-size: 1.5em; color: #f44336; font-weight: bold;">0/100</span></td></tr>
+                </table>
+            </div>
+            <div style="background: #fff3e0; padding: 25px; border-radius: 12px; margin-bottom: 25px;">
+                <h2 style="color: #F57C00; margin-top: 0;">⚠️ Recommandation</h2>
+                <p style="margin: 0;">L'étudiant doit soumettre un véritable plan d'affaires comprenant au minimum :</p>
+                <ul style="margin: 10px 0 0 20px;">
+                    <li>Une description claire du produit ou service</li>
+                    <li>Une analyse du marché cible</li>
+                    <li>Un modèle économique ou stratégie de revenus</li>
+                </ul>
+            </div>
+            <div style="background: #f5f5f5; padding: 20px; border-radius: 12px; text-align: center; color: #666; font-size: 0.9em;">
+                <p style="margin: 0;">⚡ Analyse effectuée en {processing_time} secondes<br>📧 Notification envoyée au professeur</p>
+            </div>
+        </div>
+        """
+    
+    # Rapport normal pour un document valide
     scores = analysis.get('scores', {})
     score_global = analysis.get('score_global', 0)
     
     if score_global >= 80: color_score = "#4CAF50"
     elif score_global >= 60: color_score = "#FF9800"
     else: color_score = "#f44336"
+    
+    completude = analysis.get('completude', 'N/A')
     
     report_html = f"""
     <div style="font-family: 'Inter', -apple-system, sans-serif; line-height: 1.6; color: #333;">
@@ -167,6 +275,7 @@ def generate_formatted_report(analysis: Dict[str, Any], student_name: str, proje
                 <tr><td style="padding: 8px 0;"><strong>Projet:</strong></td><td style="padding: 8px 0;">{project_title}</td></tr>
                 <tr><td style="padding: 8px 0;"><strong>Date:</strong></td><td style="padding: 8px 0;">{datetime.now().strftime('%d/%m/%Y à %H:%M')}</td></tr>
                 <tr><td style="padding: 8px 0;"><strong>Score Global:</strong></td><td style="padding: 8px 0;"><span style="font-size: 1.5em; color: {color_score}; font-weight: bold;">{score_global}/100</span></td></tr>
+                <tr><td style="padding: 8px 0;"><strong>Complétude:</strong></td><td style="padding: 8px 0;">{completude}</td></tr>
             </table>
         </div>
         <div style="background: #e3f2fd; padding: 25px; border-radius: 12px; margin-bottom: 25px; border-left: 4px solid #2196F3;">
